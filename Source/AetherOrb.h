@@ -58,8 +58,10 @@ namespace aether
         float driveValue = 0.0f;   
         
         float subValue = 0.0f;
+        float squeezeValue = 0.0f;
         float gainValue = 1.0f;
         float mixValue = 1.0f;
+        float xoverValue = 150.0f;
         
         float noiseLevel = 0.0f;
         float noiseDistort = 0.0f;
@@ -132,10 +134,10 @@ namespace aether
         void setLevel(float lvl) { currentLevel = lvl; } 
         void setMorph(float m) { morphValue = m; }       
         
-        // DNB / Spatial - WIDTH removed from DSP, kept at 0 or fixed for Orb
+        // DNB / Spatial
         void setWidth(float w) { widthValue = w; }       
         
-        void setSqueeze(float s) { (void)s; }
+        void setSqueeze(float s) { squeezeValue = s; }
         
         // Gain: Decibels to Linear, but kept as a "scale factor"
         void setGain(float db) { gainValue = std::pow(10.0f, db / 20.0f); }
@@ -144,7 +146,7 @@ namespace aether
         
         void setSub(float s) { subValue = s; }
         
-        void setXOver(float x) { (void)x; }
+        void setXOver(float x) { xoverValue = x; } // New XOver setter
 
         // Distortion / Noise
         // Drive controls expansion
@@ -209,30 +211,26 @@ namespace aether
             float gainScale = std::clamp(gainValue, 0.3f, 1.4f);
             
             // Base visual scale
-            float widthMult = 1.0f; // Width removed from UI
+            float widthMult = 1.0f + widthValue * 0.8f;
             float expansionEst = 1.0f + driveValue * 0.5f; 
             // Multiplier reduced to 0.19f (from 0.35f) because we are now FULL SCREEN (1000x700).
             // This maintains the original visual size but allows infinite expansion without clipping.
             float baseScale = std::min(w, h) * 0.19f * gainScale; 
             
-            float safeScale = baseScale; // widthMult is 1.0f
+            float safeScale = baseScale / (std::max(1.0f, widthMult * 0.7f));
             
             // Audio Reactivity
             // Sub adds MASSIVE pulse
             float pulseIntensity = 0.5f + subValue * 0.5f; 
-            float safeLevel = std::isfinite(currentLevel) ? std::clamp(currentLevel, 0.0f, 2.0f) : 0.0f;
-            targetExpansion = 1.0f + (driveValue * 0.3f) + (safeLevel * pulseIntensity);
+            targetExpansion = 1.0f + (driveValue * 0.3f) + (currentLevel * pulseIntensity);
             
             // Smooth expansion
-            if (!std::isfinite(expansion)) expansion = 1.0f;
             expansion += (targetExpansion - expansion) * 0.1f;
             pulse = (expansion - 1.0f); 
-            if (!std::isfinite(pulse)) pulse = 0.0f;
 
             // Base Color Calculation (Filter & Morph)
             // Cutoff decides Hue: Low (Red/Dark) -> High (Cyan/Bright)
-            float safeCutoff = std::clamp(cutoffHz, 20.0f, 20000.0f);
-            float normCutoff = (std::log(safeCutoff) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
+            float normCutoff = (std::log(cutoffHz) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
             normCutoff = std::clamp(normCutoff, 0.0f, 1.0f);
             
             // "Warm" Palette (Morph 0): Brand Cyan (0.5) to Blue (0.6)
@@ -259,45 +257,14 @@ namespace aether
             g.setGradientFill(grad);
             g.fillEllipse(cx - safeScale * 1.2f, cy - safeScale * 1.2f, safeScale * 2.4f, safeScale * 2.4f);
             
-            // Feedback Halo — glowing ring around the orb (Feedback / Time / Space)
+            // Feedback Halo (Outer Ring)
             if (fbAmt > 0.01f)
             {
-                // Base ring size: expands with Space and breathes with level
-                float haloSize = safeScale * (2.2f + fbSpace * 1.2f) + (pulse * 35.0f);
-                // Subtle time-based breath so the ring feels alive (fbTime modulates speed)
-                float timePhase = frame * 0.03f * (1.0f + fbTime * 0.5f);
-                float breath = 1.0f + std::sin(timePhase) * (0.04f + fbAmt * 0.06f);
-                float R = (haloSize * 0.5f) * breath;
-                float mixContrib = mixValue;
-
-                // ---- 1. Outer glow (soft bloom layers) ----
-                int glowLayers = 5;
-                for (int i = glowLayers; i >= 1; --i)
-                {
-                    float layerR = R + (float)i * (8.0f + fbSpace * 6.0f);
-                    float layerAlpha = (0.06f + fbAmt * 0.12f) * mixContrib * (1.0f / (float)i);
-                    g.setColour(baseCol.withAlpha(layerAlpha));
-                    g.drawEllipse(cx - layerR, cy - layerR, layerR * 2.0f, layerR * 2.0f, 3.0f + (float)i * 1.5f);
-                }
-
-                // ---- 2. Main ring — thick, bright core ----
-                float coreThickness = 4.0f + fbAmt * 14.0f + fbSpace * 4.0f;  // Thick & responsive
-                float coreAlpha = (0.5f + fbAmt * 0.5f) * mixContrib;
-                g.setColour(baseCol.withAlpha(coreAlpha));
-                g.drawEllipse(cx - R, cy - R, R * 2.0f, R * 2.0f, coreThickness);
-
-                // ---- 3. Inner bright edge (inner glow line) ----
-                float innerR = R - coreThickness * 0.4f;
-                if (innerR > 2.0f)
-                {
-                    g.setColour(baseCol.withAlpha(0.35f * mixContrib));
-                    g.drawEllipse(cx - innerR, cy - innerR, innerR * 2.0f, innerR * 2.0f, 2.0f);
-                }
-
-                // ---- 4. Outer bright edge (sharp rim) ----
-                float outerR = R + coreThickness * 0.3f;
-                g.setColour(baseCol.withAlpha(0.6f * mixContrib));
-                g.drawEllipse(cx - outerR, cy - outerR, outerR * 2.0f, outerR * 2.0f, 2.5f);
+                // Halo expands with Space and Pulse
+                float haloSize = safeScale * (2.2f + fbSpace * 1.0f) + (pulse * 30.0f);
+                float haloAlpha = fbAmt * 0.4f * mixValue; // Controlled by Mix
+                g.setColour(baseCol.withAlpha(haloAlpha));
+                g.drawEllipse(cx - haloSize/2, cy - haloSize/2, haloSize, haloSize, 2.0f + fbAmt * 10.0f);
             }
             
             // Pre-calculate rotation matrices (Moved UP for Sub Beam)
@@ -344,12 +311,46 @@ namespace aether
                 float mz = p.z + shapeMod * p.z;
                 
                 // NOISE JITTER (Shake)
+                // NOISE & DISTORTION (Smooth Deformation)
                 if (noiseLevel > 0.0f || noiseDistort > 0.0f)
                 {
-                    float jitterAmt = (noiseLevel * 0.15f) + (noiseDistort * 0.08f);
-                    mx += (rng.nextFloat() - 0.5f) * jitterAmt;
-                    my += (rng.nextFloat() - 0.5f) * jitterAmt;
-                    mz += (rng.nextFloat() - 0.5f) * jitterAmt;
+                    // NOISE: High frequency surface roughness (Crumple)
+                    // Uses position-based chaos that evolves SLOWLY
+                    float noiseFreq = 8.0f;
+                    float noiseSpeed = frame * 0.15f; 
+                    
+                    float nX = std::sin(p.y * noiseFreq + noiseSpeed + p.phaseOffset);
+                    float nY = std::cos(p.z * noiseFreq + noiseSpeed);
+                    float nZ = std::sin(p.x * noiseFreq + noiseSpeed);
+                    
+                    // DISTORT: Lower frequency structural warping
+                    float distFreq = 3.0f;
+                    float distSpeed = frame * 0.08f;
+                    
+                    float dX = std::sin(p.z * distFreq - distSpeed);
+                    float dY = std::cos(p.x * distFreq + distSpeed);
+                    float dZ = std::sin(p.y * distFreq - distSpeed + p.phaseOffset);
+
+                    // Combine
+                    // Visual scaling factors REDUCED by 80% per user request (Subtle warp)
+                    float nAmt = noiseLevel * 0.024f; // Was 0.12f
+                    float dAmt = noiseDistort * 0.03f; // Was 0.15f
+                    
+                    mx += (nX * nAmt) + (dX * dAmt);
+                    my += (nY * nAmt) + (dY * dAmt);
+                    mz += (nZ * nAmt) + (dZ * dAmt);
+                    
+                    // Re-introduce Jitter (Micro-shake per user request)
+                    // Increased to 12% to be "more obvious" while keeping smooth base
+                    float jitterScale = 0.12f; 
+                    // Note: maintaining original reference values for jitter calculation so it stays strong
+                    float jitterAmt = ((noiseLevel * 0.15f) + (noiseDistort * 0.08f)) * jitterScale;
+                    
+                    if (jitterAmt > 0.00001f) {
+                         mx += (rng.nextFloat() - 0.5f) * jitterAmt;
+                         my += (rng.nextFloat() - 0.5f) * jitterAmt;
+                         mz += (rng.nextFloat() - 0.5f) * jitterAmt;
+                    }
                 }
                 
                 // Internal Spin (The "Swirl")
@@ -364,8 +365,15 @@ namespace aether
                 // float normXOver = (xoverValue - 60.0f) / 240.0f; 
                 // swirledY *= (1.0f + normXOver * 0.5f * std::abs(swirledY));
 
-                // WIDTH: Horizontal Stretch removed
-                float stretchedX = swirledX; 
+                // SQUEEZE: Flatten vertically (Pancake)
+                // Range 0-1.
+                // Aggressive: Flatten by up to 98% (almost flat)
+                float squeezeMult = 1.0f - (squeezeValue * 0.98f); 
+                swirledY *= squeezeMult;
+                
+                // WIDTH: Horizontal Stretch
+                float widthMult = 1.0f + widthValue * 1.5f; 
+                float stretchedX = swirledX * widthMult;
                 
                 // 3. VIEW ROTATION
                 float y1 = swirledY * cp - swirledZ * sp;
@@ -408,7 +416,7 @@ namespace aether
                     
                     float dx = p1.px - p2.px;
                     float dy = p1.py - p2.py;
-                    float maxDist = 60.0f * expansion; 
+                    float maxDist = (60.0f + widthValue * 20.0f) * expansion; 
                     
                     if (dx*dx + dy*dy < maxDist * maxDist)
                     {

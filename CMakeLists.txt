@@ -27,6 +27,23 @@ juce_add_plugin(Aether
 
 # Add source files
 target_sources(Aether PUBLIC
+    Source/AetherAlgorithmSelector.h
+    Source/AetherCommon.h
+    Source/AetherCustomKnob.h
+    Source/AetherDSP.h
+    Source/AetherDimension.h
+    Source/AetherDistortion.h
+    Source/AetherFilter.h
+    Source/AetherLogo.h
+    Source/AetherLookAndFeel.h
+    Source/AetherModulation.h
+    Source/AetherNoise.h
+    Source/AetherOrb.h
+    Source/AetherPresets.h
+    Source/AetherReactorTank.h
+    Source/AetherResonator.h
+    Source/AetherTransferVisualizer.h
+    Source/AetherVisualizer.h
     Source/PluginProcessor.h
     Source/PluginProcessor.cpp
     Source/PluginEditor.h

@@ -50,17 +50,19 @@ public:
         // Scale drive for intensity (0 to 24dB approx)
         float driveGain = std::pow(10.0f, (drive * 24.0f) / 20.0f);
 
-        // Distribute drive across stages.
-        // With up to 12 stages, we need to ensure each stage adds meaningful grit
-        int safeStages = std::max(1, stages);
-        output *= (driveGain / std::sqrt((float)safeStages)); 
-
-        for (int i = 0; i < safeStages; ++i)
+        for (int i = 0; i < stages; ++i)
         {
+            // Distribute drive across stages.
+            // With up to 12 stages, we need to ensure each stage adds meaningful grit
+            output *= (driveGain / std::sqrt((float)stages)); 
+
             if (output >= 0)
                 output = applyAlgo(output, algoPos);
             else
                 output = applyAlgo(output, algoNeg);
+            
+            // Subtle DC mitigation per stage
+            output = std::clamp(output, (SampleType)-2.0, (SampleType)2.0);
         }
 
         return output;
