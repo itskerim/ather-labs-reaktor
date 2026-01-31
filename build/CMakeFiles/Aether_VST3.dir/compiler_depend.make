@@ -854,11 +854,15 @@ CMakeFiles/Aether_VST3.dir/Source/PluginEditor.cpp.o: /Users/kerim/magicker/Sour
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
   /Users/kerim/magicker/Source/AetherPresets.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -2329,10 +2333,14 @@ CMakeFiles/Aether_VST3.dir/Source/PluginProcessor.cpp.o: /Users/kerim/magicker/S
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -6345,8 +6353,6 @@ _deps/juce-src/modules/juce_audio_processors_headless/format_types/VST3_SDK/base
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTTypesetter.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRunDelegate.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRun.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTParagraphStyle.h:
@@ -7069,12 +7075,6 @@ _deps/juce-src/modules/juce_audio_processors_headless/format_types/VST3_SDK/publ
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSImageView.h:
 
-_deps/juce-src/modules/juce_audio_processors_headless/format_types/VST3_SDK/public.sdk/source/vst/moduleinfo/moduleinfo.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/disjunction.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSImageRep.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreFoundation.framework/Headers/CFByteOrder.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/kill_dependency.h:
@@ -7096,6 +7096,8 @@ _deps/juce-src/modules/juce_core/files/juce_FileInputStream.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSFont.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSFilePromiseReceiver.h:
+
+/Users/kerim/magicker/Source/AetherLogo.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/libkern/arm/_OSByteOrder.h:
 
@@ -8459,6 +8461,10 @@ _deps/juce-src/modules/juce_audio_basics/midi/ump/juce_UMPDispatcher.h:
 
 /Users/kerim/magicker/Source/PluginEditor.h:
 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRunDelegate.h:
+
+/Users/kerim/magicker/Source/AetherTransferVisualizer.h:
+
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSCustomTouchBarItem.h:
 
 /Users/kerim/magicker/Source/AetherPresets.h:
@@ -9305,6 +9311,10 @@ _deps/juce-src/modules/juce_gui_basics/widgets/juce_ImageComponent.h:
 
 _deps/juce-src/modules/juce_gui_basics/filebrowser/juce_FileListComponent.h:
 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_useconds_t.h:
+
+/Users/kerim/magicker/Source/AetherReactorTank.h:
+
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/errno.h:
 
 _deps/juce-src/modules/juce_events/messages/juce_CallbackMessage.h:
@@ -9873,8 +9883,6 @@ _deps/juce-src/modules/juce_audio_processors_headless/format_types/VST3_SDK/plug
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_primary_template.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_useconds_t.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreData.framework/Headers/NSSaveChangesRequest.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/inclusive_scan.h:
@@ -9968,6 +9976,10 @@ _deps/juce-src/modules/juce_gui_basics/widgets/juce_TextEditor.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__configuration/abi.h:
 
 _deps/juce-src/modules/juce_audio_basics/midi/ump/juce_UMPView.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/pair.h:
+
+/Users/kerim/magicker/Source/AetherNoise.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSItemProvider.h:
 
@@ -10294,8 +10306,6 @@ _deps/juce-src/modules/juce_gui_basics/layout/juce_BorderedComponentBoundsConstr
 _deps/juce-src/modules/juce_graphics/fonts/juce_GlyphArrangementOptions.h:
 
 _deps/juce-src/modules/juce_gui_extra/embedding/juce_HWNDComponent.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/pair.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/function.h:
 
@@ -10778,6 +10788,12 @@ _deps/juce-src/modules/juce_dsp/processors/juce_StateVariableTPTFilter.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/fdim.h:
 
 _deps/juce-src/modules/juce_core/text/juce_CharPointer_UTF16.h:
+
+_deps/juce-src/modules/juce_audio_processors_headless/format_types/VST3_SDK/public.sdk/source/vst/moduleinfo/moduleinfo.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSImageRep.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/disjunction.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreVideo.framework/Headers/CVDisplayLink.h:
 

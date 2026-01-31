@@ -854,11 +854,15 @@ CMakeFiles/Aether_Standalone.dir/Source/PluginEditor.cpp.o: /Users/kerim/magicke
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
   /Users/kerim/magicker/Source/AetherPresets.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -2329,10 +2333,14 @@ CMakeFiles/Aether_Standalone.dir/Source/PluginProcessor.cpp.o: /Users/kerim/magi
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -5199,6 +5207,8 @@ _deps/juce-src/modules/juce_audio_basics/audio_play_head/juce_AudioPlayHead.h:
 
 /Users/kerim/magicker/Source/PluginEditor.h:
 
+/Users/kerim/magicker/Source/AetherTransferVisualizer.h:
+
 _deps/juce-src/modules/juce_gui_extra/misc/juce_SplashScreen.h:
 
 /Users/kerim/magicker/Source/AetherResonator.h:
@@ -5761,6 +5771,8 @@ _deps/juce-src/modules/juce_gui_basics/widgets/juce_ImageComponent.h:
 
 _deps/juce-src/modules/juce_gui_basics/filebrowser/juce_FileListComponent.h:
 
+/Users/kerim/magicker/Source/AetherReactorTank.h:
+
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/errno.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_iterator_concept.h:
@@ -6278,6 +6290,8 @@ _deps/juce-src/modules/juce_audio_basics/midi/ump/juce_UMPView.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/different_from.h:
+
+/Users/kerim/magicker/Source/AetherNoise.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_posix_availability.h:
 
@@ -7330,6 +7344,8 @@ _deps/juce-src/modules/juce_dsp/widgets/juce_Gain.h:
 _deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AAXClientExtensions.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/initializer_list:
+
+/Users/kerim/magicker/Source/AetherLogo.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/pop_heap.h:
 

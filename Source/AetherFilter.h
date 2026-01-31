@@ -29,9 +29,17 @@ public:
         s1 = 0; s2 = 0;
         ic1eq = 0; ic2eq = 0;
         ic3eq = 0; ic4eq = 0;
+        ic5eq = 0; ic6eq = 0;
     }
     
-    void setType(FilterType t) { filterType = t; }
+    void setType(FilterType t) 
+    { 
+        if (filterType != t)
+        {
+            filterType = t; 
+            reset(); // Clear state when switching modes
+        }
+    }
 
     /**
      * Set filter coefficients
@@ -41,23 +49,25 @@ public:
      */
     void setParams(float cutoff, float res, float morph)
     {
-        // Safe cutoff bounds
         cutoff = std::clamp(cutoff, 20.0f, sampleRate * 0.45f);
-        
         currentCutoff = cutoff;
         currentResonance = res;
-        currentMorph = std::clamp(morph, 0.0f, 0.999f); // Clamp to prevent index 5
+        currentMorph = std::clamp(morph, 0.0f, 0.999f); 
         
         float g = std::tan(PI * cutoff / sampleRate);
-        float k = 2.0f - (1.9f * res); // Resonance mapping
+        float r = 2.0f - (1.95f * res); 
         
-        a1 = 1.0f / (1.0f + g * (g + k));
+        a1 = 1.0f / (1.0f + g * (g + r));
         a2 = g * a1;
         a3 = g * a2;
+        k_val = r;
     }
 
     SampleType processSample(SampleType x)
     {
+        // --- 1. Audio Stability Guard ---
+        if (!std::isfinite(s1) || !std::isfinite(s2)) reset();
+
         // Standard SVF State Update
         SampleType v3 = x - s2;
         SampleType v1 = a1 * s1 + a2 * v3;
@@ -66,117 +76,110 @@ public:
         s1 = 2.0f * v1 - s1;
         s2 = 2.0f * v2 - s2;
         
-        // SVF Outputs
-        SampleType lp = v2;
-        SampleType hp = x - k * v1 - v2;
-        SampleType bp = v1;
-        SampleType notch = x - k * v1;
-
         SampleType output = 0;
 
         switch (filterType)
         {
             case FilterType::LowPass:
-                output = lp;
+                output = v2;
                 break;
             case FilterType::BandPass:
-                output = bp;
+                output = v1;
                 break;
             case FilterType::HighPass:
-                output = hp;
+                output = x - k_val * v1 - v2;
                 break;
             case FilterType::Notch:
-                output = notch;
+                output = x - k_val * v1;
                 break;
             case FilterType::Morph:
                 // Morphing between LP -> BP -> HP
                 if (currentMorph < 0.5f)
                 {
                     float m = currentMorph * 2.0f;
-                    output = lp * (1.0f - m) + bp * m;
+                    output = v2 * (1.0f - m) + v1 * m;
                 }
                 else
                 {
                     float m = (currentMorph - 0.5f) * 2.0f;
-                    output = bp * (1.0f - m) + hp * m;
+                    output = v1 * (1.0f - m) + (x - k_val * v1 - v2) * m;
                 }
                 break;
             case FilterType::Formant:
-                // --- VOWEL / FORMANT MODE (The "Muzz/Skrillex" Growl) ---
-                // We hijack the LowPass slot for now to be the default "Growl" filter
-                // Morph 0..1 sweeps: A -> E -> I -> O -> U
-                
-                float vowels[5][2] = {
-                    {730.0f, 1090.0f}, // A
-                    {530.0f, 1840.0f}, // E
-                    {270.0f, 2290.0f}, // I
-                    {570.0f, 840.0f},  // O
-                    {300.0f, 870.0f}   // U
+            {
+                // Safety: Reset Formant states if invalid
+                if (!std::isfinite(ic1eq) || !std::isfinite(ic3eq)) reset();
+
+                struct Vowel { float f1, f2, f3; };
+                static const Vowel vowelTable[5] = {
+                    { 730.0f, 1090.0f, 2440.0f }, // A
+                    { 530.0f, 1840.0f, 2480.0f }, // E
+                    { 270.0f, 2290.0f, 3010.0f }, // I
+                    { 570.0f, 840.0f,  2410.0f }, // O
+                    { 300.0f, 870.0f,  2240.0f }  // U
                 };
                 
-                // Morph Index
-                float m = currentMorph * 4.0f; // 0..4
+                float m = currentMorph * 3.99f;
                 int i = (int)m;
-                if (i > 4) i = 4; // Safety clamp
                 float frac = m - i;
                 int next = (i + 1) % 5;
                 
-                // Interpolate Formants
-                float f1 = vowels[i][0] * (1.0f - frac) + vowels[next][0] * frac;
-                float f2 = vowels[i][1] * (1.0f - frac) + vowels[next][1] * frac;
+                float f1 = vowelTable[i].f1 * (1.0f - frac) + vowelTable[next].f1 * frac;
+                float f2 = vowelTable[i].f2 * (1.0f - frac) + vowelTable[next].f2 * frac;
+                float f3 = vowelTable[i].f3 * (1.0f - frac) + vowelTable[next].f3 * frac;
                 
-                // Shift by Cutoff knob (so it's tunable but stable)
-                // Linear 20Hz-20kHz is too extreme. Map 1000Hz to 1.0x.
-                // Range: 0.5x (Deep) to 2.0x (Chipmunk)
-                // Logic: (cutoff / 1000.0f) is bad. 
-                // Let's use log-like mapping or just clamped range.
-                float gender = std::pow(currentCutoff / 1000.0f, 0.3f); // Gentler curve
+                float shift = std::pow(currentCutoff / 800.0f, 0.5f); 
+                f1 *= shift; f2 *= shift; f3 *= shift;
                 
-                f1 *= gender;
-                f2 *= gender;
+                float q = 1.0f + (currentResonance * 15.0f); 
                 
-                // Parallel BandPass Filters for Formants
-                // Very high resonance for "Talking" effect
-                float q = currentResonance * 8.0f + 1.0f; // High Q needed for distinct vowels
+                auto processPeak = [&](float freq, SampleType& sA, SampleType& sB) -> SampleType
+                {
+                    freq = std::clamp(freq, 40.0f, sampleRate * 0.45f);
+                    float gp = std::tan(PI * freq / sampleRate);
+                    float rp = 1.0f / q;
+                    float a1p = 1.0f / (1.0f + gp * (gp + rp));
+                    float a2p = gp * a1p;
+                    float a3p = gp * a2p;
+
+                    SampleType v3p = x - sB;
+                    SampleType v1p = a1p * sA + a2p * v3p;
+                    SampleType v2p = sB + a3p * sA + a2p * v1p;
+                    
+                    sA = 2.0f * v1p - sA;
+                    sB = 2.0f * v2p - sB;
+                    
+                    return v1p; // Bandpass output
+                };
+
+                SampleType p1 = processPeak(f1, ic1eq, ic2eq);
+                SampleType p2 = processPeak(f2, ic3eq, ic4eq);
+                SampleType p3 = processPeak(f3, ic5eq, ic6eq);
                 
-                // Formant 1
-                float g1 = std::tan(3.14159f * std::clamp(f1, 50.0f, sampleRate * 0.45f) / sampleRate);
-                float k1 = 1.0f / q;
-                float a1_formant = 1.0f / (1.0f + g1 * (g1 + k1));
-                float bp1 = (x - ic1eq - ic2eq * (g1 + k1)) * a1_formant * g1; // BP output
-                ic1eq += 2.0f * g1 * (x - ic1eq - ic2eq * (g1 + k1)) * a1_formant;
-                ic2eq += 2.0f * bp1;
-                
-                // Formant 2
-                float g2 = std::tan(3.14159f * std::clamp(f2, 50.0f, sampleRate * 0.45f) / sampleRate);
-                float k2 = 1.0f / q;
-                float a2_formant = 1.0f / (1.0f + g2 * (g2 + k2));
-                float bp2 = (x - ic3eq - ic4eq * (g2 + k2)) * a2_formant * g2;
-                ic3eq += 2.0f * g2 * (x - ic3eq - ic4eq * (g2 + k2)) * a2_formant;
-                ic4eq += 2.0f * bp2;
-                
-                // Sum with Gain Compensation (Resonant BPFs add gain)
-                output = (bp1 + bp2) * 0.5f; 
+                output = (p1 * 1.0f + p2 * 0.8f + p3 * 0.6f) * 0.8f;
+                output = std::tanh(output); // Soft clip
                 break;
+            }
         }
         return output;
     }
 
 private:
     float sampleRate = 44100.0f;
-    float a1, a2, a3;
-    float k = 1.0f;
-    float s1 = 0, s2 = 0;
+    float a1=0, a2=0, a3=0;
+    float k_val = 1.0f;
+    SampleType s1 = 0, s2 = 0;
     
     // Formant Filter State
-    float ic1eq = 0, ic2eq = 0;
-    float ic3eq = 0, ic4eq = 0;
+    SampleType ic1eq = 0, ic2eq = 0;
+    SampleType ic3eq = 0, ic4eq = 0;
+    SampleType ic5eq = 0, ic6eq = 0;
     
     float currentCutoff = 1000.0f;
     float currentResonance = 0.5f;
     float currentMorph = 0.0f;
     
-    FilterType filterType = FilterType::Morph; // Default to Morph
+    FilterType filterType = FilterType::Morph;
 };
 
 } // namespace aether

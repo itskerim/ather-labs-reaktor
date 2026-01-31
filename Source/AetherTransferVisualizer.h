@@ -15,14 +15,17 @@ class AetherTransferVisualizer : public juce::Component
 public:
     AetherTransferVisualizer() = default;
 
-    void setParams(DistortionAlgo pos, DistortionAlgo neg, float drive, int stages)
+    void setParams(DistortionAlgo pos, DistortionAlgo neg, float drive, int stages, float fold)
     {
         algoPos = pos;
         algoNeg = neg;
         currentDrive = drive;
         currentStages = stages;
+        currentFold = fold;
         repaint();
     }
+    
+    void updateInputLevel(float in) { currentInput = in; repaint(); }
 
     void paint(juce::Graphics& g) override
     {
@@ -53,7 +56,7 @@ public:
         
         for (float x = -1.0f; x <= 1.0f; x += 0.01f) // Higher resolution
         {
-            float y = dummy.processSample(x, currentDrive, algoPos, algoNeg, currentStages);
+            float y = dummy.processSample(x, currentDrive, currentFold, algoPos, algoNeg, currentStages);
             float plotX = centerX + (x * w * 0.48f);
             float plotY = centerY - (y * h * 0.48f);
             
@@ -67,12 +70,27 @@ public:
         
         g.setColour(juce::Colour(0xff38bdf8));
         g.strokePath(path, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved));
+        
+        // 5. Active Signal Dot (Rides the wave)
+        float x = currentInput;
+        float y = dummy.processSample(x, currentDrive, currentFold, algoPos, algoNeg, currentStages);
+        float dotX = centerX + (x * w * 0.48f);
+        float dotY = centerY - (y * h * 0.48f);
+        
+        g.setColour(juce::Colours::white);
+        g.fillEllipse(dotX - 3.0f, dotY - 3.0f, 6.0f, 6.0f);
+        
+        // Trail
+        g.setColour(juce::Colours::white.withAlpha(0.3f));
+        g.drawLine(centerX, centerY, dotX, dotY, 1.0f);
     }
 
 private:
     DistortionAlgo algoPos = DistortionAlgo::SoftClip;
     DistortionAlgo algoNeg = DistortionAlgo::SoftClip;
     float currentDrive = 0.5f;
+    float currentFold = 0.0f;
+    float currentInput = 0.0f;
     int currentStages = 1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AetherTransferVisualizer)

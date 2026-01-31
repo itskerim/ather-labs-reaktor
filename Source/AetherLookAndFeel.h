@@ -96,23 +96,22 @@ public:
          ptr.lineTo(pBaseR);
          ptr.closeSubPath();
          
-         juce::Colour accent = slider.findColour(juce::Slider::thumbColourId);
-         
-         // Draw Arm Glow
-         g.setColour(accent.withAlpha(0.15f));
-         g.fillPath(ptr);
-         
-         // Draw Arm Solid
-         g.setColour(accent);
-         g.fillPath(ptr);
-         g.fillEllipse(center.x - 3, center.y - 3, 6, 6); // Center pin
-         
-         // --- 4. VALUE ARC ---
-         // Draw arc behind? Or on top? On top looks "Overlaid HUD".
-         juce::Path arc;
-         arc.addCentredArc(center.x, center.y, radius * 0.92f, radius * 0.92f, 0.0f, rotaryStartAngle, toAngle, true);
-         g.setColour(accent);
-         g.strokePath(arc, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+          juce::Colour accent = slider.findColour(juce::Slider::thumbColourId);
+          
+          // Draw Arm Glow
+          g.setColour(accent.withAlpha(0.15f));
+          g.fillPath(ptr);
+          
+          // Draw Arm Solid
+          g.setColour(accent);
+          g.fillPath(ptr);
+          g.fillEllipse(center.x - 3, center.y - 3, 6, 6); // Center pin
+          
+          // --- 4. VALUE ARC ---
+          juce::Path arc;
+          arc.addCentredArc(center.x, center.y, radius * 0.92f, radius * 0.92f, 0.0f, rotaryStartAngle, toAngle, true);
+          g.setColour(accent);
+          g.strokePath(arc, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
     
     // --- DROPDOWN: INSET SCREEN ---
@@ -120,13 +119,90 @@ public:
     {
         auto area = juce::Rectangle<int>(0, 0, width, height).toFloat();
         
-        // Dark Glass / Inset Look
+        // 1. Dark Glass Inset
         g.setColour(juce::Colour(0xff09090b));
         g.fillRoundedRectangle(area, 4.0f);
         
-        // Inner Shadow/Border
+        // 2. Neon Accent Side-Strip
+        g.setColour(juce::Colour(0xff00d4ff).withAlpha(0.6f));
+        g.fillRect(0.0f, 0.0f, 3.0f, (float)height);
+        
+        // 3. Techy Outer Border
         g.setColour(juce::Colour(0xff27272a));
         g.drawRoundedRectangle(area, 4.0f, 1.0f);
+
+        // 4. Down Arrow (Minimal)
+        juce::Path p;
+        float arrowW = 8.0f;
+        p.startNewSubPath(width - 15.0f, height * 0.45f);
+        p.lineTo(width - 15.0f + arrowW/2, height * 0.45f + 5.0f);
+        p.lineTo(width - 15.0f + arrowW, height * 0.45f);
+        g.setColour(juce::Colour(0xffa1a1aa));
+        g.strokePath(p, juce::PathStrokeType(1.5f));
+    }
+
+    void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
+    {
+        label.setBounds(10, 0, box.getWidth() - 30, box.getHeight());
+        label.setFont(juce::Font(juce::FontOptions("Inter", 11.0f, juce::Font::bold)));
+    }
+
+    // --- POPUP MENU: NEON DASHBOARD STYLE ---
+    void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override
+    {
+        auto area = juce::Rectangle<int>(0, 0, width, height).toFloat();
+        
+        // Deep Black Matte
+        g.setColour(juce::Colour(0xff09090b));
+        g.fillRoundedRectangle(area, 6.0f);
+        
+        // Cyber Outline
+        g.setColour(juce::Colour(0xff3f3f46));
+        g.drawRoundedRectangle(area, 6.0f, 1.5f);
+        
+        // Subtle Scanline Header
+        g.setColour(juce::Colour(0xff00d4ff).withAlpha(0.05f));
+        for (int y = 0; y < height; y += 4)
+            g.drawHorizontalLine(y, 0, (float)width);
+    }
+
+    void drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area,
+                           const bool isSeparator, const bool isActive,
+                           const bool isHighlighted, const bool isTicked,
+                           const bool hasSubMenu, const juce::String& text,
+                           const juce::String& shortcutKeyText,
+                           const juce::Drawable* icon, const juce::Colour* const textColourToUse) override
+    {
+        auto r = area.toFloat();
+
+        if (isSeparator)
+        {
+            g.setColour(juce::Colour(0xff27272a));
+            g.drawLine(r.getX() + 10, r.getCentreY(), r.getRight() - 10, r.getCentreY(), 1.0f);
+            return;
+        }
+
+        if (isHighlighted && isActive)
+        {
+            // Neon Glow Highlight
+            g.setColour(juce::Colour(0xff00d4ff).withAlpha(0.15f));
+            g.fillRect(r.reduced(2.0f));
+            
+            g.setColour(juce::Colour(0xff00d4ff));
+            g.drawRect(r.reduced(2.0f), 1.0f);
+        }
+
+        g.setColour(isHighlighted ? juce::Colours::white : juce::Colour(0xffe4e4e7));
+        g.setFont(juce::Font(juce::FontOptions("Inter", 13.0f, isHighlighted ? juce::Font::bold : juce::Font::plain)));
+        
+        auto textRect = r.reduced(15, 0);
+        g.drawText(text, textRect, juce::Justification::centredLeft, true);
+
+        if (isTicked)
+        {
+            g.setColour(juce::Colour(0xff00d4ff));
+            g.fillEllipse(r.getX() + 5, r.getCentreY() - 2, 4, 4);
+        }
     }
 };
 

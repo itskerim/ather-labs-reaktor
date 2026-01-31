@@ -854,11 +854,15 @@ CMakeFiles/Aether_AU.dir/Source/PluginEditor.cpp.o: /Users/kerim/magicker/Source
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
   /Users/kerim/magicker/Source/AetherPresets.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -2329,10 +2333,14 @@ CMakeFiles/Aether_AU.dir/Source/PluginProcessor.cpp.o: /Users/kerim/magicker/Sou
   /Users/kerim/magicker/Source/AetherDimension.h \
   /Users/kerim/magicker/Source/AetherDistortion.h \
   /Users/kerim/magicker/Source/AetherFilter.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherResonator.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/PluginProcessor.h \
@@ -7702,8 +7710,6 @@ _deps/juce-src/modules/juce_audio_plugin_client/AU/AudioUnitSDK/AUEffectBase.cpp
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTTypesetter.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRunDelegate.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRun.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTParagraphStyle.h:
@@ -8482,6 +8488,12 @@ _deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLevelIndicatorCell.h:
 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/acl.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLayoutManager.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLayoutConstraint.h:
+
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLayoutAnchor.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSInputManager.h:
@@ -8515,6 +8527,8 @@ _deps/juce-src/modules/juce_core/files/juce_FileInputStream.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSFont.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSFilePromiseReceiver.h:
+
+/Users/kerim/magicker/Source/AetherLogo.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/libkern/arm/_OSByteOrder.h:
 
@@ -9542,9 +9556,9 @@ _deps/juce-src/modules/juce_audio_utils/audio_cd/juce_AudioCDBurner.h:
 
 _deps/juce-src/modules/juce_gui_basics/layout/juce_StretchableObjectResizer.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/data.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLevelIndicator.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/data.h:
 
 _deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_VST3Interface.h:
 
@@ -9861,6 +9875,10 @@ _deps/juce-src/modules/juce_audio_basics/audio_play_head/juce_AudioPlayHead.h:
 _deps/juce-src/modules/juce_audio_basics/midi/ump/juce_UMPDispatcher.h:
 
 /Users/kerim/magicker/Source/PluginEditor.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreText.framework/Headers/CTRunDelegate.h:
+
+/Users/kerim/magicker/Source/AetherTransferVisualizer.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSCustomTouchBarItem.h:
 
@@ -10496,8 +10514,6 @@ _deps/juce-src/modules/juce_audio_processors/format_types/juce_VST3PluginFormat.
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_fsblkcnt_t.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLayoutConstraint.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_uuid_t.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/functional:
@@ -10701,6 +10717,10 @@ _deps/juce-src/modules/juce_core/memory/juce_CopyableHeapBlock.h:
 _deps/juce-src/modules/juce_gui_basics/widgets/juce_ImageComponent.h:
 
 _deps/juce-src/modules/juce_gui_basics/filebrowser/juce_FileListComponent.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_useconds_t.h:
+
+/Users/kerim/magicker/Source/AetherReactorTank.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/errno.h:
 
@@ -11256,10 +11276,6 @@ _deps/juce-src/modules/juce_audio_basics/sources/juce_ReverbAudioSource.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/count_if.h:
 
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/acl.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSLayoutManager.h:
-
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/os/availability.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColorPicking.h:
@@ -11269,8 +11285,6 @@ _deps/juce-src/modules/juce_audio_basics/sources/juce_ReverbAudioSource.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreFoundation.framework/Headers/CFRunLoop.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_primary_template.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_useconds_t.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/CoreData.framework/Headers/NSSaveChangesRequest.h:
 
@@ -11371,6 +11385,10 @@ _deps/juce-src/modules/juce_gui_basics/widgets/juce_TextEditor.h:
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__configuration/abi.h:
 
 _deps/juce-src/modules/juce_audio_basics/midi/ump/juce_UMPView.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/pair.h:
+
+/Users/kerim/magicker/Source/AetherNoise.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSItemProvider.h:
 
@@ -11699,8 +11717,6 @@ _deps/juce-src/modules/juce_gui_basics/layout/juce_BorderedComponentBoundsConstr
 _deps/juce-src/modules/juce_graphics/fonts/juce_GlyphArrangementOptions.h:
 
 _deps/juce-src/modules/juce_gui_extra/embedding/juce_HWNDComponent.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/pair.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/function.h:
 

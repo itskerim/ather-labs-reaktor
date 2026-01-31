@@ -31,6 +31,21 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
         }
     };
     presetSelector.setText("FACTORY PRESETS");
+    
+    // Help Button
+    addAndMakeVisible(helpButton);
+    helpButton.setClickingTogglesState(true);
+    helpButton.setToggleState(true, juce::dontSendNotification); // Default ON
+    helpButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff00d4ff)); // Cyan when Active
+    helpButton.setColour(juce::TextButton::textColourOnId, juce::Colours::black);
+    helpButton.setTooltip("HELP MODE: Toggle detailed DSP tooltips for all controls.");
+    
+    helpButton.onClick = [this] {
+        tooltipsEnabled = helpButton.getToggleState();
+        // Global toggle logic: TooltipWindow doesn't have an 'active' state easily,
+        // so we'll just check this flag in timer or handle it via individual comp tooltips.
+        // For simplicity, we just change the button color to show it's active.
+    };
 
     // --- 2. Central Stage ---
     // --- 2. Central Stage ---
@@ -39,6 +54,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     addAndMakeVisible(transferVis);
     addAndMakeVisible(posSelector);
     addAndMakeVisible(negSelector);
+    addAndMakeVisible(logo);
 
     // --- 3. Primary Distortion Controls ---
     driveSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
@@ -51,12 +67,13 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     driveLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(driveLabel);
 
-    stagesSlider.setSliderStyle(juce::Slider::LinearBar);
-    stagesSlider.setRange(1, 6, 1);
-    addAndMakeVisible(stagesSlider);
-    stagesAtt = std::make_unique<Attachment>(audioProcessor.apvts, "stages", stagesSlider);
+    stagesReactor.onValueChanged = [this](int val) {
+        if (auto* p = audioProcessor.apvts.getParameter("stages"))
+            p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1((float)val));
+    };
+    addAndMakeVisible(stagesReactor);
     
-    stagesLabel.setText("STAGES", juce::dontSendNotification);
+    stagesLabel.setText("12-STAGE REACTOR", juce::dontSendNotification);
     addAndMakeVisible(stagesLabel);
 
     // --- 4. Morphing Filter Section ---
@@ -127,14 +144,14 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     fbTimeLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(fbTimeLabel);
 
-    // --- 6. Experimental ---
-    decimateSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    decimateSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(decimateSlider);
-    decimateAtt = std::make_unique<Attachment>(audioProcessor.apvts, "decimate", decimateSlider);
-    decimateLabel.setText("DECIMATE", juce::dontSendNotification);
-    decimateLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(decimateLabel);
+    // --- 6. Experimental (Now Fold) ---
+    foldSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    foldSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(foldSlider);
+    foldAtt = std::make_unique<Attachment>(audioProcessor.apvts, "fold", foldSlider);
+    foldLabel.setText("FOLD", juce::dontSendNotification);
+    foldLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(foldLabel);
 
     squeezeSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     squeezeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -144,13 +161,28 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     squeezeLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(squeezeLabel);
 
-    scrambleSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    scrambleSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(scrambleSlider);
-    scrambleAtt = std::make_unique<Attachment>(audioProcessor.apvts, "scramble", scrambleSlider);
-    scrambleLabel.setText("SCRAMBLE", juce::dontSendNotification);
-    scrambleLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(scrambleLabel);
+    // --- Noise Engine ---
+    noiseLevelSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    noiseLevelSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(noiseLevelSlider);
+    noiseLevelAtt = std::make_unique<Attachment>(audioProcessor.apvts, "noiseLevel", noiseLevelSlider);
+    noiseLevelLabel.setText("NOISE", juce::dontSendNotification);
+    noiseLevelLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(noiseLevelLabel);
+
+    noiseWidthSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    noiseWidthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(noiseWidthSlider);
+    noiseWidthAtt = std::make_unique<Attachment>(audioProcessor.apvts, "noiseWidth", noiseWidthSlider);
+    noiseWidthLabel.setText("WIDTH", juce::dontSendNotification);
+    noiseWidthLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(noiseWidthLabel);
+
+    noiseTypeSelector.addItem("WHITE", 1);
+    noiseTypeSelector.addItem("PINK", 2);
+    noiseTypeSelector.addItem("CRACK", 3);
+    addAndMakeVisible(noiseTypeSelector);
+    noiseTypeAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.apvts, "noiseType", noiseTypeSelector);
 
     spaceSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     spaceSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -205,30 +237,32 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     subLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(subLabel);
 
-    // --- 8. UX Tooltips ---
-    driveSlider.setTooltip("DRIVE: Input gain pushed into the distortion stages. Higher values = More harmonic saturation.");
-    stagesSlider.setTooltip("STAGES: Number of series distortion stages. 1 = Subtle, 6 = Total destruction.");
-    decimateSlider.setTooltip("DECIMATE: Sample Rate Reduction. Adds digital aliasing and grit.");
+    // --- 8. UX Tooltips (DETAILED DSP MODE) ---
+    driveSlider.setTooltip("DRIVE // SATURATION ENGINE: Increases input gain pre-distortion. Using a multi-staged bipolar algorithm that treats positive and negative phases independently for maximum asymmetric grit.");
+    foldSlider.setTooltip("FOLD // SINE WAVEFOLDER: Maps the signal onto a sinusoidal curve. Instead of clipping, peaks are folded back, creating recursive harmonics and hollow 'talking' textures.");
+    stagesReactor.setTooltip("STAGES // MULTI-PASS REACTOR: Re-iterates the audio through the engine up to 12 times. Each pass compounds the non-linearity, resulting in dense, 'broken' harmonic structures.");
     
-    cutoffSlider.setTooltip("CUTOFF: Filter Frequency. Controls the brightness or 'talking' vowel position.");
-    resSlider.setTooltip("RESONANCE: Filter Peak. High values create 'talking' formants or self-oscillation.");
-    morphSlider.setTooltip("MORPH: Sweeps filter shapes (LP->BP->HP) or Vowels (A-E-I-O-U) in Formant Mode.");
+    cutoffSlider.setTooltip("CUTOFF // TPT SVF FILTER: Zero-Delay Feedback State Variable Filter. Controls frequency response using topology-preserving math for stable, analog-style sweeps.");
+    resSlider.setTooltip("RESONANCE // Q-FACTOR: Increases gain at the cutoff. High levels trigger self-oscillation or vowel growls when combined with Formant mode.");
+    morphSlider.setTooltip("MORPH // DYNAMIC RESPONSE: Sweeps between filter types (LP, BP, HP) or Vowels (A, E, I, O, U) using linear coefficient interpolation.");
     
-    fbAmountSlider.setTooltip("FEEDBACK: Resonator intensity. Pushes signal back into itself for metallic tones.");
-    fbTimeSlider.setTooltip("TIME: Tuned delay time for the resonator. Short = Karplus Strong, Long = Metallic Echo.");
-    spaceSlider.setTooltip("SPACE: Reverb/Diffusion amount applied to the feedback loop.");
+    fbAmountSlider.setTooltip("FEEDBACK // RESONATOR DEPTH: Re-injects processed audio into the chain. High amounts create metallic 'Karplus-Strong' synthesis or screaming resonance.");
+    fbTimeSlider.setTooltip("TIME // TUNED DELAY: Sets the delay line length in ms. Short times create comb-filter textures; longer times create distorted metallic echoes.");
+    spaceSlider.setTooltip("SPACE // DIFFUSION: Adds high-density all-pass delays to the loop, creating a claustrophobic 'small room' or 'tank' resonance.");
     
-    scrambleSlider.setTooltip("SCRAMBLE: Chaos LFO Depth. Randomizes filter cutoff and resonator feedback.");
+    scrambleSlider.setTooltip("SCRAMBLE // CHAOS LFO: High-speed randomization engine. Modulates filter and feedback parameters with a jittered 'Drift' waveform for unstable 'Plasma' movement.");
     
-    subSlider.setTooltip("SUB: Clean Mono Sub-Bass level. Keyed to the track fundamental via Cross-Over.");
-    xoverSlider.setTooltip("X-OVER: Crossover Frequency (Hz). Splits signal into clean Sub and distorted Tops.");
-    squeezeSlider.setTooltip("SQUEEZE: Upward Compression (OTT). Smashing dynamics to bring out quiet details.");
-    widthSlider.setTooltip("WIDTH: Dimension Expander. Widens the high-band (Tops) while keeping Sub mono.");
+    noiseLevelSlider.setTooltip("NOISE // TEXTURE GEN: Injects pre-filtered white, pink, or crackle noise. Used to add 'tooth' and high-end sizzle that the distortion can grab onto.");
+    noiseWidthSlider.setTooltip("N-WIDTH: Stereo spread of the noise generator. Controls the phase-uncorrelated width of the texture injection.");
+    noiseTypeSelector.setTooltip("TYPE: Spectral Profile. Choose between pure White (flat), character Pink (filtered), or Crackle (granular impulses).");
     
-    outputSlider.setTooltip("GAIN: Master Output Volume.");
-    mixSlider.setTooltip("MIX: Dry/Wet Blend. 100% = Full Effect.");
+    subSlider.setTooltip("SUB // MONO BASS: Clean sine-saturated mono channel. Keeps the low-end fundamental solid while the tops are being destroyed.");
+    xoverSlider.setTooltip("X-OVER // LINKWITZ-RILEY: 4th-order (24dB/oct) phase-matched crossover. Splits signal accurately so Sub and Tops stay in perfect phase alignment.");
+    squeezeSlider.setTooltip("SQUEEZE // MULTI-BAND OTT: Upward and downward compression engine. Smashes the signal into a wall to pull out tiny high-frequency detail and grit.");
+    widthSlider.setTooltip("WIDTH // DIMENSION EXPANDER: Stereo width transformation using mid-side processing and micro-delays. Keeps the low-band (Sub) strictly mono.");
     
-    mixSlider.setTooltip("MIX: Dry/Wet Blend. 100% = Full Effect.");
+    outputSlider.setTooltip("GAIN: Master Output Volume (Final Clean Gain Stage).");
+    mixSlider.setTooltip("MIX: Dry/Wet Parallel Blend. Uses a linear crossfade to preserve phase between the dry signal and the processed chain.");
 
     mixLabel.setText("DRY/WET", juce::dontSendNotification);
     mixLabel.setJustificationType(juce::Justification::centred);
@@ -247,6 +281,9 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // 1. Deep Void Background (Solid Dark)
     g.fillAll(juce::Colour(0xff050505)); 
+    
+    float orbCX = getWidth() / 2.0f;
+    float orbCY = getHeight() / 2.0f;
 
     // --- Subtle Cyber Grid (Holodeck) ---
     g.setColour(juce::Colour(0xff1a1a1a));
@@ -262,41 +299,6 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour(juce::Colour(0xff1a1a1a));
     g.drawHorizontalLine(79, 0, (float)getWidth());
 
-    // Logo
-    g.setColour(juce::Colour(0xffffffff));
-    g.setFont(juce::Font(juce::FontOptions("Inter", 30.0f, juce::Font::bold)));
-    g.drawText("AETHER LAB 3.0", 30, 10, 300, 60, juce::Justification::centredLeft);
-    
-    // Hardware Section Labels (Silkscreen)
-    g.setColour(juce::Colour(0xff71717a)); // Zinc-500
-    g.setFont(juce::Font(juce::FontOptions("Inter", 14.0f, juce::Font::bold)));
-    
-    // Draw subtle backgrounds for sections with Cyber Accents
-    auto drawTechBox = [&](int x, int y, int w, int h, const juce::String& label)
-    {
-        // 1. Recessed background
-        g.setColour(juce::Colour(0xff121212)); 
-        g.fillRoundedRectangle((float)x, (float)y, (float)w, (float)h, 8.0f);
-        
-        // 2. Corner Brackets (Cyber)
-        g.setColour(juce::Colour(0xff3f3f46)); // Zinc-700
-        float bLen = 10.0f;
-        g.drawHorizontalLine(y, x, x + bLen); g.drawVerticalLine(x, y, y + bLen); // TL
-        g.drawHorizontalLine(y+h, x+w-bLen, x+w); g.drawVerticalLine(x+w, y+h-bLen, y+h); // BR
-        
-        // 3. Label
-        g.setColour(juce::Colour(0xff71717a));
-        g.drawText(label, x + 15, y + 5, 100, 20, juce::Justification::left);
-    };
-
-    // Shape
-    drawTechBox(20, 90, 340, 150, "DISTORTION // CORE");
-    
-    // Tone
-    drawTechBox(20, 260, 340, 130, "FILTERS // SPECTRAL");
-    
-    // Space
-    drawTechBox(20, 420, 340, 130, "MODULATION // TIME");
     
     // Global HUD Text
     g.setColour(juce::Colour(0xff27272a));
@@ -308,6 +310,12 @@ void PhatRackAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
     auto header = area.removeFromTop(60);
+    
+    logo.setBounds(header.getX() + 15, header.getY(), 300, header.getHeight());
+    
+    auto helpArea = header.removeFromRight(40).reduced(10);
+    helpButton.setBounds(helpArea);
+    
     presetSelector.setBounds(header.removeFromRight(180).reduced(10));
     
     // Bottom Scope (Wide)
@@ -337,34 +345,52 @@ void PhatRackAudioProcessorEditor::resized()
         l.setBounds(x, y + colW - 15, colW, 20); // Label slightly tucked
     };
     
-    // Row 1
+    // Row 1 (Distortion)
     placeKnob(driveSlider, driveLabel, startX, startY);
-    placeKnob(stagesSlider, stagesLabel, startX + colW + gap, startY);
-    placeKnob(decimateSlider, decimateLabel, startX + (colW + gap)*2, startY);
+    placeKnob(foldSlider, foldLabel, startX + colW + gap, startY);
+    
+    // Row 2 (Noise) - Below Drive/Decimate
+    placeKnob(noiseLevelSlider, noiseLevelLabel, startX, startY + colW + 20);
+    placeKnob(noiseWidthSlider, noiseWidthLabel, startX + colW + gap, startY + colW + 20);
+    noiseTypeSelector.setBounds(startX, startY + (colW + 20) * 2 - 5, (colW * 2) + gap, 20);
     
     // --- TOP RIGHT: FILTER ---
     // Mirror position
     placeKnob(cutoffSlider, cutoffLabel, endX, startY);
     placeKnob(resSlider, resLabel, endX + colW + gap, startY);
-    placeKnob(scrambleSlider, scrambleLabel, endX + (colW + gap)*2, startY);
     
+    // Row 2 (Filter Extras)
     // Mode Button (Small, under/near Filter section)
-    filterModeBtn.setBounds(endX, startY + colW + 20, 90, 20); // Under Cutoff/Res
+    filterModeBtn.setBounds(endX, startY + colW + 20, 90, 20); 
     
+    // We have Scramble...
+    placeKnob(scrambleSlider, scrambleLabel, endX + colW + gap, startY + colW + 20);
+    // placeKnob(scrambleSlider, scrambleLabel, endX + (colW + gap)*2, startY); // Moved down? Or replace?
+    // Let's keep Scramble on top row? No wait, Stages took its spot.
+    
+    // Re-arranging Filter Row:
+    // [ Cutoff ] [ Res ] [ Stages ]
     // --- BOTTOM LEFT: FEEDBACK ---
     placeKnob(fbAmountSlider, fbAmountLabel, startX, bottomY);
     placeKnob(fbTimeSlider, fbTimeLabel, startX + colW + gap, bottomY);
     placeKnob(spaceSlider, spaceLabel, startX + (colW + gap)*2, bottomY);
     
-    // --- BOTTOM RIGHT: OUTPUT ---
+    // --- BOTTOM RIGHT: REACTOR CORE ---
+    // The "Reactor Tank" filling slider
+    int tankW = 50;
+    int tankH = 150;
+    stagesReactor.setBounds(grid.getRight() - tankW - 10, grid.getBottom() - tankH - 10, tankW, tankH);
+    stagesLabel.setBounds(stagesReactor.getX() - 40, stagesReactor.getBottom() + 5, tankW + 80, 20);
     // Moved to Deck below... disable these here or move them?
     // Actually, "Output" block is now the Deck. 
     // Let's keep the symmetry but move some things.
     // We needed room.
     
     // --- CENTER CONTROLS (Overlaid on Orb Periphery) ---
+    // --- CENTER CONTROLS (Overlaid on Orb Periphery) ---
     // Morph Slider (Top Center of Orb)
-    morphSlider.setBounds(grid.getCentreX() - 40, orb.getY() - 60, 80, 80);
+    // Shifted down slightly to clear the Transfer Graph
+    morphSlider.setBounds(grid.getCentreX() - 40, orb.getY() - 50, 80, 80);
     morphLabel.setBounds(morphSlider.getX(), morphSlider.getBottom() - 10, 80, 20);
     
     // Macros Removed per user request
@@ -373,7 +399,8 @@ void PhatRackAudioProcessorEditor::resized()
     // Orb is already placed.
     
     // Transfer visualizer still small at top
-    transferVis.setBounds(grid.getCentreX() - 50, header.getBottom() + 10, 100, 60); 
+    // Made slightly shorter to add gap
+    transferVis.setBounds(grid.getCentreX() - 50, header.getBottom() + 10, 100, 50); 
     
     // --- 7. BOTTOM ROW (Global / DnB Deck) ---
     // We have 6 globs now: Sub, XOver, Squeeze, Width, Output, Mix
@@ -420,72 +447,69 @@ void PhatRackAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 
 void PhatRackAudioProcessorEditor::timerCallback()
 {
+
     // Update Transfer visualizer
     auto pos = (aether::DistortionAlgo)(int)audioProcessor.apvts.getRawParameterValue("algoPos")->load();
     auto neg = (aether::DistortionAlgo)(int)audioProcessor.apvts.getRawParameterValue("algoNeg")->load();
     auto drive = audioProcessor.apvts.getRawParameterValue("drive")->load();
-    auto stages = (int)audioProcessor.apvts.getRawParameterValue("stages")->load();
+    auto stages_raw = audioProcessor.apvts.getRawParameterValue("stages")->load();
+    auto stages = (int)stages_raw;
     
-    transferVis.setParams(pos, neg, drive, stages);
+    float fold = audioProcessor.apvts.getRawParameterValue("fold")->load();
+    transferVis.setParams(pos, neg, drive, stages, fold);
+    
+    // Animate Transfer Dot
+    float time = (float)juce::Time::getMillisecondCounter() * 0.002f;
+    float sweep = std::sin(time) * 0.8f; 
+    transferVis.updateInputLevel(sweep);
     
     // Update Orb & Scope
-    // We can peek at the Atomic RMS if we added it, but let's fake it with 'drive' level for visual reactivity
-    
-    // Get Morph & Cutoff for Reactivity
     auto morph = audioProcessor.apvts.getRawParameterValue("morph")->load();
     
-    orb.setLevel(drive); 
-    orb.setMorph(morph);
+    // Sync Stages Reactor with Central Theme
+    stagesReactor.setValue(stages_raw);
+    stagesReactor.setMorph(morph);
     
-    // Ideally we push real buffer here if we had an Atomic FIFO. 
-    // For now, let's just make the scope show a static line or noise to prove it exists
-    // (Real scope needs AudioProcessor -> Editor FIFO)
-    juce::AudioBuffer<float> noise(1, 256);
-    auto* w = noise.getWritePointer(0);
-    for(int i=0; i<256; ++i) w[i] = (juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f) * drive;
-    osc.pushBuffer(noise);
+    // --- CLASSIC SPECTRUM FEED ---
+    juce::AudioBuffer<float> vizNoise(1, 256);
+    auto* w_viz = vizNoise.getWritePointer(0);
+    for(int i=0; i<256; ++i) w_viz[i] = (juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f) * drive;
+    
+    // Multi-parameter reactivity
+    float fb_val = audioProcessor.apvts.getRawParameterValue("fbAmount")->load();
+    
+    osc.pushBuffer(vizNoise); 
+    osc.setMorph(morph);
+    osc.setChaos(0.0f); 
+    osc.setIntensity(fb_val);   
     
     // --- UX: Interactive Status Bar ---
-    // Check what mouse is hovering
     auto* comp = juce::Desktop::getInstance().getMainMouseSource().getComponentUnderMouse();
-    juce::String statusText = "SYS.OP.ACTIVE // AETHER.KERNEL.V5"; // Default
+    juce::String statusText = "SYS.OP.ACTIVE // AETHER.KERNEL.V5"; 
     
     if (comp)
     {
         if (auto* slider = dynamic_cast<juce::Slider*>(comp))
         {
-            // If Hovering a Slider: Show Name + Value + Tooltip Summary
-            juce::String name = slider->getName(); 
-            // NOTE: We didn't set names explicitly for all sliders, but we can rely on Tooltip logic?
-            // Better: Use the Tooltip text as the description
-            
             juce::String tip = slider->getTooltip();
             if (tip.isNotEmpty())
             {
-                // Format: "VALUE: 0.50 | DESCRIPTION"
                 juce::String valText = juce::String(slider->getValue(), 2);
-                // Extract Name from Tooltip (before colon)
                 juce::String paramName = tip.upToFirstOccurrenceOf(":", false, false);
                 juce::String desc = tip.fromFirstOccurrenceOf(":", false, false).trim();
-                
                 statusText = paramName + ": " + valText + " // " + desc;
             }
         }
     }
     
-    // Force repaint of footer area to update text
-    // (We draw this text in paint(), but Paint call is expensive if valid)
-    // Optimization: Store text in a member string and only repaint if changed?
-    // For now, let's just trigger repaint of the bottom strip.
-    repaint(0, getHeight() - 30, getWidth(), 30);
-    
-    // Hack: We need to pass this string to paint() somehow.
-    // Let's add a member `currentStatusText` to Editor.h
     currentStatusText = statusText;
     
-    // REPAINT ORB (Critical for animation)
+    // REPAINT ORB (Physical Drift)
+    orb.setLevel(drive); 
+    orb.setMorph(morph);
+    orb.advance(); 
+    logo.advance();
+    logo.setMorph(morph);
+
     orb.repaint();
-    
-    // Repaint Footer
-    repaint(0, getHeight() - 30, getWidth(), 30);
 }

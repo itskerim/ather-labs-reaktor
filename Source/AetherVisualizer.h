@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "AetherDistortion.h" // For DistortionAlgo enum
+#include "AetherTransferVisualizer.h"
 
 namespace aether
 {
@@ -41,17 +42,29 @@ public:
         }
     }
     
+    void setMorph(float m) { morphValue = m; }
+    void setChaos(float c) { chaosValue = c; }
+    void setIntensity(float i) { intensity = i; }
+
     void paint(juce::Graphics& g) override
     {
-        // Draw Background Grid
-        g.setColour(juce::Colour(0xff18181b).withAlpha(0.6f));
-        g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.05f));
-        int numLines = 10;
-        for(int i=0; i<numLines; ++i) 
-            g.drawVerticalLine(getWidth() * (i/(float)numLines), 0, getHeight());
+        auto bounds = getLocalBounds().toFloat();
+        float w = (float)getWidth();
+        float h = (float)getHeight();
 
-        g.setColour(juce::Colour(0xff38bdf8)); // Cyan Laser
+        // 1. Cyber Glass Board
+        g.setColour(juce::Colour(0xff09090b).withAlpha(0.7f));
+        g.fillRoundedRectangle(bounds, 8.0f);
+        
+        g.setColour(juce::Colours::white.withAlpha(0.03f));
+        int numLines = 12;
+        for(int i=0; i<numLines; ++i) 
+            g.drawVerticalLine(w * (i/(float)numLines), 0, h);
+
+        // --- Reactive Color Logic ---
+        juce::Colour c1 = juce::Colour(0xff00d4ff); // Cyan
+        juce::Colour c2 = juce::Colour(0xffbc13fe); // Purple
+        juce::Colour activeCol = c1.interpolatedWith(c2, morphValue);
         
         if (nextFFTBlockReady)
         {
@@ -63,49 +76,54 @@ public:
             for(int i=0; i<scopeSize; ++i)
             {
                  float val = fftData[i];
-                 // Basic smoothing
-                 scopeData[i] = scopeData[i] * 0.7f + val * 0.3f;
+                 // Basic smoothing: Higher intensity = more "nervous" movement
+                 float rise = 0.3f + intensity * 0.4f;
+                 scopeData[i] = scopeData[i] * (1.0f - rise) + val * rise;
             }
         }
 
         juce::Path p;
-        auto w = (float)getWidth();
-        auto h = (float)getHeight();
-        
         p.startNewSubPath(0, h);
         
-        // Logarithmic drawing for better "Musical" look
+        float time = (float)juce::Time::getMillisecondCounter() * 0.01f;
+
         for (int i = 0; i < scopeSize; ++i)
         {
-             // Normalize magnitude
-             float skews = (float)i / scopeSize; // Linear
-             // Log scale x? Let's stick to linear or semi-log for now to keep it simple but usable
-             // Actually, for spectrum, log X is better.
+             float skews = (float)i / scopeSize; 
              
+             // Magnitude to DB
              float mag = juce::Decibels::gainToDecibels(scopeData[i]) - juce::Decibels::gainToDecibels((float)fftSize);
              float normY = juce::jmap(mag, -100.0f, 0.0f, 0.0f, 1.0f);
              
+             // --- CHAOS JITTER ---
+             // Add harmonic "vibration" based on chaos param
+             float jitter = 0.0f;
+             if (chaosValue > 0.1f)
+             {
+                 jitter = std::sin(time + i * 0.5f) * chaosValue * 15.0f * normY;
+             }
+
              float x = w * skews; 
-             float y = h - (normY * h);
+             float y = h - (normY * h) + jitter;
              
-             // Smooth bottom
              if (y > h) y = h; 
              if (y < 0) y = 0;
              
              p.lineTo(x, y);
         }
-        // Close path
         p.lineTo(w, h);
         p.closeSubPath();
         
-        // Fill
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff38bdf8).withAlpha(0.5f), 0, h, 
-             juce::Colour(0xff38bdf8).withAlpha(0.1f), 0, 0, false));
+        // Fill (Reactive Gradient)
+        g.setGradientFill(juce::ColourGradient(activeCol.withAlpha(0.5f), 0, h, 
+             activeCol.withAlpha(0.05f), 0, 10, false));
         g.fillPath(p);
         
-        // Stroke
-        g.setColour(juce::Colour(0xff38bdf8));
-        g.strokePath(p, juce::PathStrokeType(1.5f));
+        // Stroke (Laser Line with Glow)
+        g.setColour(activeCol.withAlpha(0.4f));
+        g.strokePath(p, juce::PathStrokeType(3.5f)); // Soft Glow
+        g.setColour(activeCol);
+        g.strokePath(p, juce::PathStrokeType(1.5f)); // Core Line
     }
     
     void timerCallback() override { repaint(); }
@@ -113,7 +131,7 @@ public:
 private:
     static constexpr int fftOrder = 10;
     static constexpr int fftSize = 1 << fftOrder;
-    static constexpr int scopeSize = 256; // Display resolution
+    static constexpr int scopeSize = 256; 
     
     juce::dsp::FFT forwardFFT;
     juce::dsp::WindowingFunction<float> window;
@@ -124,6 +142,10 @@ private:
     
     int fifoIndex = 0;
     bool nextFFTBlockReady = false;
+    
+    float morphValue = 0.0f;
+    float chaosValue = 0.0f;
+    float intensity = 0.0f;
 };
 
 // --- MECHA-CORE REACTOR (The "Transformer") ---
@@ -294,60 +316,6 @@ private:
     std::vector<Vector3> baseVertices;
 };
 
-// --- TRANSFER FUNCTION VISUALIZER ---
-class AetherTransferVisualizer : public juce::Component
-{
-public:
-    void setParams(aether::DistortionAlgo p, aether::DistortionAlgo n, float d, int s)
-    {
-        pos = p; neg = n; drive = d; stages = s;
-        repaint();
-    }
-    
-    void paint(juce::Graphics& g) override
-    {
-        g.setColour(juce::Colour(0xff09090b));
-        g.fillRoundedRectangle(getLocalBounds().toFloat(), 6.0f);
-        g.setColour(juce::Colour(0xff27272a));
-        g.drawRoundedRectangle(getLocalBounds().toFloat(), 6.0f, 1.0f);
-        
-        // Draw Grid
-        g.setColour(juce::Colours::white.withAlpha(0.05f));
-        g.drawHorizontalLine(getHeight()/2, 0, (float)getWidth());
-        g.drawVerticalLine(getWidth()/2, 0, (float)getHeight());
-        
-        g.setColour(juce::Colour(0xff38bdf8)); // Sky Laser
-        
-        juce::Path pPath;
-        int w = getWidth();
-        int h = getHeight();
-        
-        for (int x = 0; x < w; ++x)
-        {
-            float normX = (float)x / w; // 0..1
-            float input = (normX * 2.0f) - 1.0f; // -1..1
-            
-            // Re-use simple version of distortion logic for visualization
-            // (Ideally share code with DSP but hard to link in header-only graphic)
-            float processed = input; 
-            if (input > 0) processed = std::tanh(input * (1.0f + drive * 5.0f)); 
-            else processed = std::tanh(input * (1.0f + drive * 5.0f));
-            
-            // Simple visual approximation
-            
-            float y = (1.0f - ((processed + 1.0f) * 0.5f)) * h;
-            if (x == 0) pPath.startNewSubPath((float)x, y);
-            else pPath.lineTo((float)x, y);
-        }
-        
-        g.strokePath(pPath, juce::PathStrokeType(2.0f));
-    }
-
-private:
-    aether::DistortionAlgo pos = aether::DistortionAlgo::SoftClip;
-    aether::DistortionAlgo neg = aether::DistortionAlgo::SoftClip;
-    float drive = 0.0f;
-    int stages = 1;
-};
+#include "AetherTransferVisualizer.h"
 
 } // namespace aether

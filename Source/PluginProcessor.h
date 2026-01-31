@@ -42,6 +42,32 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
 
+    // Audio Visualization FIFO
+    struct AudioFIFO {
+        static constexpr int size = 4096;
+        float buffer[size] {0};
+        std::atomic<int> writeIndex {0};
+        std::atomic<int> readIndex {0};
+        
+        void push(float samples) {
+            buffer[writeIndex.load() % size] = samples;
+            writeIndex++;
+        }
+        
+        void pull(juce::AudioBuffer<float>& out) {
+            int w = writeIndex.load();
+            int r = readIndex.load();
+            int count = std::min((int)out.getNumSamples(), w - r);
+            if (count <= 0) return;
+            
+            auto* d = out.getWritePointer(0);
+            for (int i=0; i<count; ++i) {
+                d[i] = buffer[(r + i) % size];
+            }
+            readIndex += count;
+        }
+    } audioFifo;
+
     // Waveform Data
     juce::AudioVisualiserComponent visualiser { 1 };
 

@@ -7,6 +7,7 @@
 #include "AetherResonator.h"
 #include "AetherModulation.h"
 #include "AetherDimension.h"
+#include "AetherNoise.h"
 #include <juce_dsp/juce_dsp.h> // Required for juce::dsp::StateVariableTPTFilter
 
 namespace aether
@@ -96,6 +97,7 @@ public:
         fluxFollower.setParams(10.0f, 300.0f);
         
         dimension.prepare(spec);
+        noiseGen.prepare(spec.sampleRate);
         
         numChannels = spec.numChannels;
         
@@ -114,7 +116,8 @@ public:
                  float cutoff, float resonance, float morph,
                  float fbAmount, float fbTimeMs, float scramble,
                  float subLevel, float squeeze, double bpm,
-                 float width, float xoverHz, float decimate, bool vowelMode)
+                 float width, float xoverHz, float fold, bool vowelMode,
+                 float noiseLevel, float noiseWidth, int noiseType)
     {
         auto totalSamples = buffer.getNumSamples();
         auto* channelDataL = buffer.getWritePointer(0);
@@ -122,6 +125,15 @@ public:
         
         chaosLFO.setBPM(bpm);
         
+        // --- NOISE INJECTION (Pre-Split/Pre-Distortion) ---
+        auto nType = static_cast<typename AetherNoise<SampleType>::NoiseType>(noiseType);
+        for (int s = 0; s < totalSamples; ++s)
+        {
+            SampleType& left = channelDataL[s];
+            SampleType& right = channelDataR ? channelDataR[s] : left;
+            noiseGen.process(left, right, noiseLevel, noiseWidth, nType);
+        }
+
         // Update Filter Mode
         if (vowelMode)
             filter.setType(AetherFilter<SampleType>::FilterType::Formant);
@@ -177,7 +189,7 @@ public:
         {
             SampleType sl = lL[s];
             SampleType sr = lR ? lR[s] : sl;
-            subProcessor.process(sl, sr, subLevel, 0.2f);
+            subProcessor.process(sl, sr, subLevel, drive); // Sub now reacts slightly to main drive for "Warmth"
             lL[s] = sl;
             if (lR) lR[s] = sr;
         }
@@ -219,9 +231,10 @@ public:
             // Decimate logic (Needs update for 4x?)
             // Decimate reduces sample rate. 
             // If we are at 4x, decimate needs to hold 4x longer to sound same.
-            if (decimate > 0.0f)
+            // Fold logic (Renamed from Decimate)
+            if (fold > 0.0f)
             {
-                float rateReduction = decimate * 40.0f * 4.0f; // Scale up for oversampling
+                float rateReduction = fold * 40.0f * 4.0f; // Scale up for oversampling
                 if (rateReduction < 1.0f) rateReduction = 1.0f;
                 static float holdL=0, holdR=0, counter=0;
                 counter++;
@@ -229,9 +242,11 @@ public:
                 else { left = holdL; right = holdR; }
             }
             
-            // Distortion
-            left = distortion.processSample(left, dynDrive, algoPos, algoNeg, stages);
-            right = distortion.processSample(right, dynDrive, algoPos, algoNeg, stages);
+            // Distortion with Chaotic Asymmetry (Tilt)
+            // Injecting a tiny DC offset based on flux and chaos creates asymmetric grit
+            float tilt = (flux * 0.05f) + (chaos * 0.02f * scramble);
+            left = distortion.processSample(left + tilt, dynDrive, fold, algoPos, algoNeg, stages) - tilt;
+            right = distortion.processSample(right + tilt, dynDrive, fold, algoPos, algoNeg, stages) - tilt;
             
             // Filter
             filter.setParams(dynCutoff, resonance, dynMorph);
@@ -311,6 +326,7 @@ private:
     
     // Width
     AetherDimension dimension;
+    AetherNoise<SampleType> noiseGen;
     
     // Hi-Fi
     // Factor 2 = 4x Oversampling

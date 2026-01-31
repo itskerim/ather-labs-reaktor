@@ -75,11 +75,15 @@ namespace aether
             float scale = std::min(w, h) * 0.35f; // Orb Radius
             
             // Audio Reactivity
-            float pulse = currentLevel * 0.2f;
-            float expansion = 1.0f + pulse;
+            targetExpansion = 1.0f + (currentLevel * 0.3f);
             
-            // Rotation
-            rotation += 0.005f + (currentLevel * 0.01f);
+            // Smooth expansion
+            expansion += (targetExpansion - expansion) * 0.1f;
+            pulse = (expansion - 1.0f) * 2.0f; // Derived pulse for effects
+            
+            // Rotation moved to advance()
+            
+            // Base Color (Cyan -> Purple Morph)
             
             // Base Color (Cyan -> Purple Morph)
             juce::Colour c1 = juce::Colour(0xff00d4ff); // Cyan
@@ -158,10 +162,31 @@ namespace aether
             }
         }
         
+        void advance()
+        {
+            // Increment rotation
+            rotation += 0.005f + (pulse * 0.02f); // Spin faster with drive
+            // rotation -= twoPi line removed to prevent phase jumps with random speeds
+            
+            // Pulse decay
+            // We set 'pulse' from setLevel, but we can also animate a heartbeat?
+            // Actually setLevel is called from timer, so it acts as the envelope follower.
+            // We just need rotation.
+        }
+        
     private:
         std::vector<OrbParticle> particles;
         float rotation = 0.0f;
         float currentLevel = 0.0f; // 0..1
         float morphValue = 0.0f;   // 0..1
+        
+        // Animation State
+        float expansion = 0.0f; 
+        float targetExpansion = 0.0f;
+        float pulse = 0.0f;
+        
+        juce::Colour baseCol;
+        
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AetherOrb)
     };
 }

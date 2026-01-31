@@ -8,6 +8,8 @@
 #include "AetherVisualizer.h"
 #include "AetherCustomKnob.h"
 #include "AetherOrb.h"
+#include "AetherLogo.h"
+#include "AetherReactorTank.h"
 
 // ...
 
@@ -38,20 +40,27 @@ private:
     juce::TooltipWindow tooltipWindow; // Separate init if needed
 
     // --- MAIN ENGINE CONTROLS ---
-    juce::Slider driveSlider, stagesSlider;
+    juce::Slider driveSlider;
+    aether::AetherReactorTank stagesReactor; 
     juce::Label driveLabel, stagesLabel;
     
     // --- BIPOLAR SIDEBARS ---
     aether::AetherAlgorithmSelector posSelector, negSelector;
     
+    // --- NOISE ENGINE ---
+    juce::Slider noiseLevelSlider, noiseWidthSlider;
+    juce::ComboBox noiseTypeSelector;
+    juce::Label noiseLevelLabel, noiseWidthLabel;
+    
     // --- CENTRAL STAGE ---
     aether::AetherTransferVisualizer transferVis;
     aether::AetherOrb orb; // NEW CENTRAL CORE
+    aether::AetherLogo logo; // NEW BRANDING
     aether::AetherSpectrum osc; // Output Spectrum
-    juce::Label titleLabel;
     
-    // --- PRESETS ---
+    // --- PRESETS & HELP ---
     juce::ComboBox presetSelector;
+    juce::TextButton helpButton { "?" };
     juce::Label presetLabel;
 
     // --- FILTER MODULE ---
@@ -64,8 +73,8 @@ private:
     juce::Label fbAmountLabel, fbTimeLabel;
 
     // --- EXPERIMENTAL ---
-    juce::Slider decimateSlider, scrambleSlider, spaceSlider;
-    juce::Label decimateLabel, scrambleLabel, spaceLabel;
+    juce::Slider foldSlider, spaceSlider;
+    juce::Label foldLabel, spaceLabel;
     
     // --- GLOBAL ---
     juce::Slider outputSlider, mixSlider, subSlider, squeezeSlider; 
@@ -77,14 +86,16 @@ private:
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     
-    std::unique_ptr<Attachment> driveAtt, stagesAtt, cutoffAtt, resAtt, morphAtt;
+    std::unique_ptr<Attachment> driveAtt, cutoffAtt, resAtt, morphAtt;
     std::unique_ptr<ButtonAttachment> filterModeAtt;
     std::unique_ptr<Attachment> fbAmountAtt, fbTimeAtt, outputAtt, mixAtt, subAtt, squeezeAtt;
     std::unique_ptr<Attachment> widthAtt, xoverAtt;
-    std::unique_ptr<Attachment> decimateAtt, scrambleAtt, spaceAtt;
-    // (Macros mapped to internal matrix later, but bound to params for now)
+    std::unique_ptr<Attachment> foldAtt, spaceAtt;
+    std::unique_ptr<Attachment> noiseLevelAtt, noiseWidthAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noiseTypeAtt;
 
     juce::String currentStatusText = "SYS.OP.ACTIVE // AETHER.KERNEL.V5";
-
+    bool tooltipsEnabled = true;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhatRackAudioProcessorEditor)
 };

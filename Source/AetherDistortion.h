@@ -25,20 +25,31 @@ public:
      * Processes a single sample through the bipolar engine.
      * @param input The input sample
      * @param drive Gain amount (0.0 to 1.0)
+     * @param fold Wavefolding amount (0.0 to 1.0)
      * @param algoPos Algorithm for positive phase
      * @param algoNeg Algorithm for negative phase
-     * @param stages Number of processing iterations (1 to 6)
+     * @param stages Number of processing iterations (1 to 12)
      */
-    SampleType processSample(SampleType input, float drive, DistortionAlgo algoPos, DistortionAlgo algoNeg, int stages)
+    SampleType processSample(SampleType input, float drive, float fold, DistortionAlgo algoPos, DistortionAlgo algoNeg, int stages)
     {
         SampleType output = input;
         
+        // --- 1. PRE-FOLDING (High-Fidelity Harmonics) ---
+        if (fold > 0.001f)
+        {
+            float foldGain = 1.0f + (fold * 4.0f);
+            output = std::sin(output * foldGain * PI * 0.5f);
+        }
+
+        // --- 2. MULTI-STAGED SATURATION ---
         // Scale drive for intensity (0 to 24dB approx)
         float driveGain = std::pow(10.0f, (drive * 24.0f) / 20.0f);
 
         for (int i = 0; i < stages; ++i)
         {
-            output *= (driveGain / (float)stages); // Distribute drive across stages
+            // Distribute drive across stages.
+            // With up to 12 stages, we need to ensure each stage adds meaningful grit
+            output *= (driveGain / std::sqrt((float)stages)); 
 
             if (output >= 0)
                 output = applyAlgo(output, algoPos);

@@ -1466,10 +1466,14 @@ CMakeFiles/Aether_Standalone.dir/Source/PluginEditor.cpp.o: \
   /Users/kerim/magicker/Source/AetherResonator.h \
   /Users/kerim/magicker/Source/AetherModulation.h \
   /Users/kerim/magicker/Source/AetherDimension.h \
+  /Users/kerim/magicker/Source/AetherNoise.h \
   /Users/kerim/magicker/Source/PluginEditor.h \
   /Users/kerim/magicker/Source/AetherLookAndFeel.h \
   /Users/kerim/magicker/Source/AetherAlgorithmSelector.h \
   /Users/kerim/magicker/Source/AetherVisualizer.h \
+  /Users/kerim/magicker/Source/AetherTransferVisualizer.h \
   /Users/kerim/magicker/Source/AetherCustomKnob.h \
   /Users/kerim/magicker/Source/AetherOrb.h \
+  /Users/kerim/magicker/Source/AetherLogo.h \
+  /Users/kerim/magicker/Source/AetherReactorTank.h \
   /Users/kerim/magicker/Source/AetherPresets.h

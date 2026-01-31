@@ -142,7 +142,7 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     float width = *apvts.getRawParameterValue("width");
     float xover = *apvts.getRawParameterValue("xover");
     
-    float decimate = *apvts.getRawParameterValue("decimate");
+    float fold = *apvts.getRawParameterValue("fold");
     bool vowelMode = *apvts.getRawParameterValue("filterMode") > 0.5f;
 
     // --- Get BPM ---
@@ -154,8 +154,12 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 bpm = *pos->getBpm();
     }
 
+    float noiseLevel = apvts.getRawParameterValue("noiseLevel")->load();
+    float noiseWidth = apvts.getRawParameterValue("noiseWidth")->load();
+    int noiseType = (int)apvts.getRawParameterValue("noiseType")->load();
+
     // Process Audio
-    aetherEngine.process(buffer, drive, 0.0f, stages, algoPos, algoNeg, cutoff, res, morph, fbAmount, fbTime, scramble, sub, squeeze, bpm, width, xover, decimate, vowelMode);
+    aetherEngine.process(buffer, drive, 0.0f, stages, algoPos, algoNeg, cutoff, res, morph, fbAmount, fbTime, scramble, sub, squeeze, bpm, width, xover, fold, vowelMode, noiseLevel, noiseWidth, noiseType);
     
     // Apply Mix
     // Apply Mix (Standard Linear Crossfade)
@@ -171,6 +175,15 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             // This allows full Wet (Mix=1) and full Dry (Mix=0)
             wet[s] = wet[s] * mix + dry[s] * (1.0f - mix);
         }
+    }
+
+    for (int s = 0; s < buffer.getNumSamples(); ++s)
+    {
+        // Average channels for mono visualizer
+        float sum = 0;
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            sum += buffer.getSample(ch, s);
+        audioFifo.push(sum / buffer.getNumChannels());
     }
 
     visualiser.pushBuffer(buffer);
@@ -211,7 +224,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
 
     // --- Distortion ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("drive", "Drive", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
-    layout.add(std::make_unique<juce::AudioParameterInt>("stages", "Stages", 1, 6, 1));
+    layout.add(std::make_unique<juce::AudioParameterInt>("stages", "Stages", 1, 12, 1));
     
     juce::StringArray algos;
     algos.add("None"); algos.add("SoftClip"); algos.add("HardClip"); algos.add("SineFold");
@@ -232,7 +245,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
     layout.add(std::make_unique<juce::AudioParameterFloat>("fbAmount", "Feedback", 0.0f, 1.1f, 0.0f)); // Allow self-oscillation
     layout.add(std::make_unique<juce::AudioParameterFloat>("fbTime", "Feedback Time", 0.1f, 500.0f, 20.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("scramble", "Plasma/Scramble", 0.0f, 1.0f, 0.0f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>("decimate", "Decimate", 0.0f, 1.0f, 0.0f)); // Missing before!
+    layout.add(std::make_unique<juce::AudioParameterFloat>("fold", "Wavefolder", 0.0f, 1.0f, 0.0f)); 
     
     // --- Modes ---
     layout.add(std::make_unique<juce::AudioParameterBool>("filterMode", "Vowel Mode", false)); // False=Morph, True=Formant
@@ -248,6 +261,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
     // --- Global & UI ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("output", "Output Gain", juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("mix", "Dry/Wet", 0.0f, 1.0f, 1.0f));
+
+    // --- Noise Engine ---
+    layout.add(std::make_unique<juce::AudioParameterFloat>("noiseLevel", "Noise Level", 0.0f, 1.0f, 0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("noiseWidth", "Noise Width", 0.0f, 1.0f, 1.0f));
+    juce::StringArray noiseTypes; noiseTypes.add("White"); noiseTypes.add("Pink"); noiseTypes.add("Crackle");
+    layout.add(std::make_unique<juce::AudioParameterChoice>("noiseType", "Noise Type", noiseTypes, 0));
 
     return layout;
 }
