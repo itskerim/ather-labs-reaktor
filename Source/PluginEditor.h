@@ -54,6 +54,54 @@ private:
     
     // Custom Noise Loader
     juce::TextButton loadNoiseButton { "L" };
+
+    // Custom Icon Button
+    class HeadphoneButton : public juce::ToggleButton
+    {
+    public:
+        HeadphoneButton() : juce::ToggleButton("SOLO") {}
+        
+        void paintButton(juce::Graphics& g, bool shouldDrawButtonAsMouseOver, bool shouldDrawButtonAsDown) override
+        {
+            auto bounds = getLocalBounds().toFloat();
+            // Background
+            if (getToggleState())
+                g.setColour(juce::Colour(0xff00d4ff).withAlpha(0.2f));
+            else if (shouldDrawButtonAsMouseOver)
+                g.setColour(juce::Colours::white.withAlpha(0.1f));
+            else
+                g.setColour(juce::Colours::transparentBlack);
+            
+            g.fillRoundedRectangle(bounds, 4.0f);
+            
+            // Icon Color
+            juce::Colour iconCol = getToggleState() ? juce::Colour(0xff00d4ff) : juce::Colours::grey;
+            if (shouldDrawButtonAsMouseOver && !getToggleState()) iconCol = juce::Colours::white;
+            
+            g.setColour(iconCol);
+            
+            // Draw Headphone Icon
+            juce::Path p;
+            float w = bounds.getWidth();
+            float h = bounds.getHeight();
+            float cx = w * 0.5f;
+            float cy = h * 0.5f;
+            float r = juce::jmin(w, h) * 0.35f;
+            
+            // Headband (Arc)
+            p.addArc(cx - r, cy - r * 0.8f, r * 2.0f, r * 2.0f, -0.8f, 0.8f + juce::MathConstants<float>::pi, true);
+            
+            // Ear Cups
+            float cupW = r * 0.5f;
+            float cupH = r * 0.8f;
+            p.addRoundedRectangle(cx - r - cupW*0.5f, cy, cupW, cupH, 2.0f);
+            p.addRoundedRectangle(cx + r - cupW*0.5f, cy, cupW, cupH, 2.0f);
+            
+            g.strokePath(p, juce::PathStrokeType(2.0f));
+        }
+    };
+
+    HeadphoneButton noiseSoloBtn; // Replaces standard ToggleButton
     std::unique_ptr<juce::FileChooser> fileChooser;
     
     // --- CENTRAL STAGE ---
@@ -81,22 +129,25 @@ private:
     juce::Label foldLabel, spaceLabel;
     
     // --- GLOBAL ---
-    juce::Slider outputSlider, mixSlider, subSlider, squeezeSlider; 
-    juce::Slider widthSlider, xoverSlider; // DnB Essentials
-    juce::Label outputLabel, mixLabel, subLabel, squeezeLabel;
-    juce::Label widthLabel, xoverLabel;
+    juce::Slider outputSlider, mixSlider, subSlider, widthSlider;
+    juce::Slider squeezeSlider, xoverSlider; 
+    juce::Label outputLabel, mixLabel, subLabel, widthLabel;
+    juce::Label squeezeLabel, xoverLabel;
 
     // --- ATTACHMENTS ---
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     
-    std::unique_ptr<Attachment> driveAtt, cutoffAtt, resAtt, morphAtt;
+    std::unique_ptr<Attachment> driveAtt, lowCutAtt, cutoffAtt, resAtt, morphAtt;
     std::unique_ptr<ButtonAttachment> filterModeAtt;
-    std::unique_ptr<Attachment> fbAmountAtt, fbTimeAtt, outputAtt, mixAtt, subAtt, squeezeAtt;
-    std::unique_ptr<Attachment> widthAtt, xoverAtt;
+    std::unique_ptr<Attachment> fbAmountAtt, fbTimeAtt, outputAtt, mixAtt, widthAtt, subAtt;
+    std::unique_ptr<Attachment> squeezeAtt, xoverAtt;
     std::unique_ptr<Attachment> foldAtt, spaceAtt;
     std::unique_ptr<Attachment> noiseLevelAtt, noiseWidthAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noiseTypeAtt;
+    std::unique_ptr<ButtonAttachment> noiseSoloAtt;
+
+
 
     bool tooltipsEnabled = true;
     

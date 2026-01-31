@@ -58,10 +58,8 @@ namespace aether
         float driveValue = 0.0f;   
         
         float subValue = 0.0f;
-        float squeezeValue = 0.0f;
         float gainValue = 1.0f;
         float mixValue = 1.0f;
-        float xoverValue = 150.0f;
         
         float noiseLevel = 0.0f;
         float noiseDistort = 0.0f;
@@ -134,10 +132,10 @@ namespace aether
         void setLevel(float lvl) { currentLevel = lvl; } 
         void setMorph(float m) { morphValue = m; }       
         
-        // DNB / Spatial
+        // DNB / Spatial - WIDTH removed from DSP, kept at 0 or fixed for Orb
         void setWidth(float w) { widthValue = w; }       
         
-        void setSqueeze(float s) { squeezeValue = s; }
+        void setSqueeze(float s) { (void)s; }
         
         // Gain: Decibels to Linear, but kept as a "scale factor"
         void setGain(float db) { gainValue = std::pow(10.0f, db / 20.0f); }
@@ -146,7 +144,7 @@ namespace aether
         
         void setSub(float s) { subValue = s; }
         
-        void setXOver(float x) { xoverValue = x; } // New XOver setter
+        void setXOver(float x) { (void)x; }
 
         // Distortion / Noise
         // Drive controls expansion
@@ -211,26 +209,30 @@ namespace aether
             float gainScale = std::clamp(gainValue, 0.3f, 1.4f);
             
             // Base visual scale
-            float widthMult = 1.0f + widthValue * 0.8f;
+            float widthMult = 1.0f; // Width removed from UI
             float expansionEst = 1.0f + driveValue * 0.5f; 
             // Multiplier reduced to 0.19f (from 0.35f) because we are now FULL SCREEN (1000x700).
             // This maintains the original visual size but allows infinite expansion without clipping.
             float baseScale = std::min(w, h) * 0.19f * gainScale; 
             
-            float safeScale = baseScale / (std::max(1.0f, widthMult * 0.7f));
+            float safeScale = baseScale; // widthMult is 1.0f
             
             // Audio Reactivity
             // Sub adds MASSIVE pulse
             float pulseIntensity = 0.5f + subValue * 0.5f; 
-            targetExpansion = 1.0f + (driveValue * 0.3f) + (currentLevel * pulseIntensity);
+            float safeLevel = std::isfinite(currentLevel) ? std::clamp(currentLevel, 0.0f, 2.0f) : 0.0f;
+            targetExpansion = 1.0f + (driveValue * 0.3f) + (safeLevel * pulseIntensity);
             
             // Smooth expansion
+            if (!std::isfinite(expansion)) expansion = 1.0f;
             expansion += (targetExpansion - expansion) * 0.1f;
             pulse = (expansion - 1.0f); 
+            if (!std::isfinite(pulse)) pulse = 0.0f;
 
             // Base Color Calculation (Filter & Morph)
             // Cutoff decides Hue: Low (Red/Dark) -> High (Cyan/Bright)
-            float normCutoff = (std::log(cutoffHz) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
+            float safeCutoff = std::clamp(cutoffHz, 20.0f, 20000.0f);
+            float normCutoff = (std::log(safeCutoff) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
             normCutoff = std::clamp(normCutoff, 0.0f, 1.0f);
             
             // "Warm" Palette (Morph 0): Brand Cyan (0.5) to Blue (0.6)
@@ -331,15 +333,8 @@ namespace aether
                 // float normXOver = (xoverValue - 60.0f) / 240.0f; 
                 // swirledY *= (1.0f + normXOver * 0.5f * std::abs(swirledY));
 
-                // SQUEEZE: Flatten vertically (Pancake)
-                // Range 0-1.
-                // Aggressive: Flatten by up to 98% (almost flat)
-                float squeezeMult = 1.0f - (squeezeValue * 0.98f); 
-                swirledY *= squeezeMult;
-                
-                // WIDTH: Horizontal Stretch
-                float widthMult = 1.0f + widthValue * 1.5f; 
-                float stretchedX = swirledX * widthMult;
+                // WIDTH: Horizontal Stretch removed
+                float stretchedX = swirledX; 
                 
                 // 3. VIEW ROTATION
                 float y1 = swirledY * cp - swirledZ * sp;
@@ -382,7 +377,7 @@ namespace aether
                     
                     float dx = p1.px - p2.px;
                     float dy = p1.py - p2.py;
-                    float maxDist = (60.0f + widthValue * 20.0f) * expansion; 
+                    float maxDist = 60.0f * expansion; 
                     
                     if (dx*dx + dy*dy < maxDist * maxDist)
                     {

@@ -16,7 +16,8 @@ class AetherResonator
 public:
     AetherResonator() 
     {
-        buffer.resize(192000, 0); // ~4s at 48k for deep space
+        // Massive 1M sample buffer (~5-20s depending on SR)
+        buffer.assign(1048576, 0.0f); 
     }
 
     void prepare(const juce::dsp::ProcessSpec& spec)
@@ -40,25 +41,35 @@ public:
      */
     SampleType processSample(SampleType x, float feedback, float timeMs, float plasma = 0.0f)
     {
+        if (buffer.empty()) return x;
+
         // Plasma LFO modulation
         float lfoVal = lfo.getNextSample();
         
         // Modulate time slightly for "Black Hole" detune
-        float modTime = timeMs + (lfoVal * plasma * 10.0f); 
+        // Clamp modTime to safe range (0.1ms to 4000ms)
+        float modTime = std::clamp(timeMs + (lfoVal * plasma * 10.0f), 0.1f, 4000.0f); 
         float delaySamples = (modTime / 1000.0f) * sampleRate;
         
         // Fractional delay read
         float readPos = (float)writeIndex - delaySamples;
-        while (readPos < 0) readPos += (float)buffer.size();
+        float bufSize = (float)buffer.size();
+        
+        // Robust wrapping
+        while (readPos < 0) readPos += bufSize;
+        while (readPos >= bufSize) readPos -= bufSize;
         
         int i1 = (int)readPos;
         int i2 = (i1 + 1) % buffer.size();
         float frac = readPos - (float)i1;
         
+        // Final safety check for indices
+        i1 = std::clamp(i1, 0, (int)buffer.size() - 1);
+        i2 = std::clamp(i2, 0, (int)buffer.size() - 1);
+
         SampleType delayedSample = buffer[i1] * (1.0f - frac) + buffer[i2] * frac;
         
         // Feedback loop with Plasma saturation
-        // If plasma is high, we push feedback harder but saturate more
         SampleType output = x + delayedSample * feedback;
         
         // "Event Horizon" Saturation (Hard clipping at edges, linear in middle)

@@ -44,8 +44,13 @@ public:
             bL[i] = 0; bR[i] = 0;
         }
 
-        // HPF Coefficients (approx 200Hz @ 44.1k/48k)
+        // HPF Coefficients (Dynamic based on SR)
+        // Tune for ~350Hz cutoff to clear mud
+        float cutoffHz = 350.0f;
+        hpCoeff = std::exp(-TWO_PI * cutoffHz / sampleRate);
+        
         hpL_x1 = 0; hpL_y1 = 0; hpR_x1 = 0; hpR_y1 = 0;
+        hpL_x2 = 0; hpL_y2 = 0; hpR_x2 = 0; hpR_y2 = 0;
         hpL_x2 = 0; hpL_y2 = 0; hpR_x2 = 0; hpR_y2 = 0;
         
         // Reset Custom Position (Thread Safe)
@@ -147,9 +152,9 @@ public:
             nR = std::tanh(nR * drive);
         }
         
-        // --- 3. LOW CUT (High Pass @ ~500Hz) ---
-        // Keep the mud out
-        float hpCoeff = 0.95f; // ~400-500Hz
+        // --- 3. LOW CUT (High Pass) ---
+        // Keep the mud out using pre-calced coeff
+        // float hpCoeff = 0.95f; // OLD STATIC
         
         float hpL1 = hpCoeff * (hpL_y1 + nL - hpL_x1);
         hpL_x1 = nL; hpL_y1 = hpL1;
@@ -183,6 +188,7 @@ private:
     float bL[7], bR[7];
 
     // HPF State
+    float hpCoeff = 0.95f;
     float hpL_x1, hpL_y1, hpR_x1, hpR_y1;
     float hpL_x2, hpL_y2, hpR_x2, hpR_y2;
     

@@ -48,7 +48,8 @@ public:
             // Let's keep LFO simple: it just takes Hz. AetherEngine calculates Hz from BPM.
         }
 
-        phase += actualFreq / sampleRate;
+        float srSafe = std::max(1.0f, sampleRate);
+        phase += actualFreq / srSafe;
         if (phase >= 1.0f) phase -= 1.0f;
 
         float output = 0.0f;

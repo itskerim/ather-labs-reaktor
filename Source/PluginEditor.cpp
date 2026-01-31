@@ -156,13 +156,13 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     foldLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(foldLabel);
 
-    squeezeSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    squeezeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(squeezeSlider);
-    squeezeAtt = std::make_unique<Attachment>(audioProcessor.apvts, "squeeze", squeezeSlider);
-    squeezeLabel.setText("SQUEEZE", juce::dontSendNotification);
-    squeezeLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(squeezeLabel);
+    eqLowSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    eqLowSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(eqLowSlider);
+    eqLowAtt = std::make_unique<Attachment>(audioProcessor.apvts, "eqLow", eqLowSlider);
+    eqLowLabel.setText("LOW", juce::dontSendNotification);
+    eqLowLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(eqLowLabel);
 
     // --- Noise Engine ---
     noiseLevelSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
@@ -180,6 +180,8 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     noiseWidthLabel.setText("DISTORT", juce::dontSendNotification);
     noiseWidthLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(noiseWidthLabel);
+
+    // Noise Sub Mod Slider Removed (Plan: EQ instead)
 
     noiseTypeSelector.addItem("WHITE", 1);
     noiseTypeSelector.addItem("PINK", 2);
@@ -205,13 +207,16 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
             {
                 audioProcessor.loadCustomNoise(file);
                 // Force selector to "Custom" (ID 4)
-                // Note: We need to access parameter to update UI, 
-                // but direct setValue on parameter is better for host sync.
                 if (auto* p = audioProcessor.apvts.getParameter("noiseType"))
                     p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(3.0f)); // Index 3 = 4th item
             }
         });
     };
+    
+    // Noise Solo Button
+    addAndMakeVisible(noiseSoloBtn);
+    noiseSoloBtn.setTooltip("Solo the Texture (Distorted Synth + Noise). Mutes Dry and Sub Bass.");
+    noiseSoloAtt = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "noiseSolo", noiseSoloBtn);
 
     spaceSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     spaceSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -221,18 +226,17 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     spaceLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(spaceLabel);
 
-    // --- DnB Essentials ---
-    widthSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    widthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(widthSlider);
-    widthAtt = std::make_unique<Attachment>(audioProcessor.apvts, "width", widthSlider);
-    widthLabel.setText("WIDTH", juce::dontSendNotification);
-    widthLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(widthLabel);
+    // --- SQUEEZE & X-OVER (Restored to Deck) ---
+    squeezeSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    squeezeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(squeezeSlider);
+    squeezeAtt = std::make_unique<Attachment>(audioProcessor.apvts, "squeeze", squeezeSlider);
+    squeezeLabel.setText("SQUEEZE", juce::dontSendNotification);
+    squeezeLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(squeezeLabel);
     
     xoverSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     xoverSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addChildComponent(xoverSlider); // Might be small or option
     addAndMakeVisible(xoverSlider);
     xoverAtt = std::make_unique<Attachment>(audioProcessor.apvts, "xover", xoverSlider);
     xoverLabel.setText("X-OVER", juce::dontSendNotification);
@@ -258,13 +262,22 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     subSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     subSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     addChildComponent(subSlider); // Add but potentially manage layout in resized
-    subSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffffffff));
+    subSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xff00d4ff));
     addAndMakeVisible(subSlider);
     subAtt = std::make_unique<Attachment>(audioProcessor.apvts, "sub", subSlider);
     
     subLabel.setText("SUB", juce::dontSendNotification);
     subLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(subLabel);
+
+    // --- 7. Output & Width ---
+    widthSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    widthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(widthSlider);
+    widthAtt = std::make_unique<Attachment>(audioProcessor.apvts, "width", widthSlider);
+    widthLabel.setText("WIDTH", juce::dontSendNotification);
+    widthLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(widthLabel);
 
     // --- 8. UX Tooltips (user-friendly, in plain language) ---
     driveSlider.setTooltip("How hard you're pushing the sound into the effect. Turn it up for more grit, crunch, and saturation; keep it lower for a lighter, cleaner tone.");
@@ -284,12 +297,10 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     noiseTypeSelector.setTooltip("The kind of noise: White = even, flat hiss; Pink = warmer, softer hiss; Crackle = tiny pops and grit. Pick what fits your sound.");
     
     subSlider.setTooltip("A clean, solid low-end (bass) that stays in the center. Keeps the bottom end clear and punchy while the rest of the sound can be heavily distorted.");
-    xoverSlider.setTooltip("Where the sound is split between the sub (bass) and the rest. Keeps bass and highs in sync so they work together instead of fighting. Adjust to fit your source.");
-    squeezeSlider.setTooltip("Compresses the sound to bring out small details and make it punchier. Can add grit and presence—like squashing the dynamics so quiet parts pop more.");
-    widthSlider.setTooltip("Makes the stereo image wider or narrower. The sub (bass) stays centered; this mainly affects the rest. Use to get a bigger or tighter stereo field.");
-    
-    outputSlider.setTooltip("Overall volume of the plugin. Use this to match the level of your mix when the effect is on.");
-    mixSlider.setTooltip("Balance between your dry (original) signal and the wet (effected) signal. 100% = full effect; 0% = bypass (original only). Use it to blend in the amount of distortion you want.");
+    xoverSlider.setTooltip("The frequency where the sound is split between the clean sub-bass and the distorted texture. 60Hz to 800Hz.");
+    squeezeSlider.setTooltip("Tightens the distortion by adding internal bias, making it feel more compressed and aggressive.");
+    lowCutSlider.setTooltip("High-pass filter for the distortion stage. Cuts the mud before it hits the reactor.");
+    widthSlider.setTooltip("Adjusts the stereo width of the distortion part of the sound. 0% = Mono; 100% = Normal; 200% = Extra wide.");
 
     mixLabel.setText("DRY/WET", juce::dontSendNotification);
     mixLabel.setJustificationType(juce::Justification::centred);
@@ -323,11 +334,18 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
     
     // 1. Calculate Dynamic Color (Replicating Orb Logic for consistency)
     auto& apvts = audioProcessor.apvts;
-    float morph = apvts.getRawParameterValue("morph")->load();
-    float cutoff = apvts.getRawParameterValue("cutoff")->load();
-    float res = apvts.getRawParameterValue("res")->load();
+    
+    auto getParamSafe = [&](juce::String id) -> float {
+        if (auto* p = apvts.getRawParameterValue(id)) return p->load();
+        return 0.0f;
+    };
 
-    float normCutoff = (std::log(cutoff) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
+    float morph = getParamSafe("morph");
+    float cutoff = getParamSafe("cutoff");
+    float res = getParamSafe("res");
+
+    float safeCutoff = std::max(20.0f, cutoff);
+    float normCutoff = (std::log(safeCutoff) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
     normCutoff = std::clamp(normCutoff, 0.0f, 1.0f);
 
     // Warm (Cyan) -> Cool (Purple)
@@ -377,14 +395,14 @@ void PhatRackAudioProcessorEditor::resized()
     // Lifted up to give spacing from bottom
     auto deck = area.removeFromBottom(135);
     
-    // Deck Layout: [Sub|XOver] ... [Squeeze|Width] ... [Out|Mix]
-    // We used to have 6 knobs. Let's center them.
+    // Deck Layout: [Sub] ... [EQ Low | Mid | High] ... [Width] ... [Out | Mix]
+    // We now have 7 knobs.
     int knobSize = juce::jmin(80, deck.getHeight() - 30);
     int gap = 15;
     int groupGap = 40;
     
     // Calculate total width
-    int totalDeckW = (knobSize * 6) + (gap * 4) + (groupGap * 2);
+    int totalDeckW = (knobSize * 7) + (gap * 5) + (groupGap * 3);
     int startX = deck.getCentreX() - (totalDeckW / 2);
     // Lift knobs slightly higher in the deck area
     int y = deck.getCentreY() - (knobSize / 2) - 5; 
@@ -399,17 +417,22 @@ void PhatRackAudioProcessorEditor::resized()
     
     // Group 1: Bass
     placeDeckKnob(subSlider, subLabel, currentX);
-    placeDeckKnob(xoverSlider, xoverLabel, currentX);
     
     currentX += groupGap; // Gap
     
-    // Group 2: Texture
-    placeDeckKnob(squeezeSlider, squeezeLabel, currentX);
+    // Group 2: Texture / EQ
+    placeDeckKnob(eqLowSlider, eqLowLabel, currentX);
+    placeDeckKnob(eqMidSlider, eqMidLabel, currentX);
+    placeDeckKnob(eqHighSlider, eqHighLabel, currentX);
+    
+    currentX += groupGap; // Gap
+    
+    // Group 3: Imaging
     placeDeckKnob(widthSlider, widthLabel, currentX);
     
     currentX += groupGap; // Gap
     
-    // Group 3: Master
+    // Group 4: Master
     placeDeckKnob(outputSlider, outputLabel, currentX);
     placeDeckKnob(mixSlider, mixLabel, currentX);
 
@@ -480,15 +503,23 @@ void PhatRackAudioProcessorEditor::resized()
     placeRow(leftCol, driveSlider, driveLabel, &foldSlider, &foldLabel);
     
     // Row 2: Noise Level | Noise Width
-    placeRow(leftCol, noiseLevelSlider, noiseLevelLabel, &noiseWidthSlider, &noiseWidthLabel);
+    auto noiseRow1 = leftCol.removeFromTop(knobH + 20);
+    int itemW = noiseRow1.getWidth() / 2;
+    noiseLevelSlider.setBounds(noiseRow1.getX(), noiseRow1.getY(), itemW, knobH);
+    noiseLevelLabel.setBounds(noiseLevelSlider.getX(), noiseLevelSlider.getBottom()-12, itemW, 20);
     
-    // Row 3: Noise Type
+    noiseWidthSlider.setBounds(noiseRow1.getX() + itemW, noiseRow1.getY(), itemW, knobH);
+    noiseWidthLabel.setBounds(noiseWidthSlider.getX(), noiseWidthSlider.getBottom()-12, itemW, 20);
+    
+    // Row 3: Noise Type (Now lower)
     auto noiseRow = leftCol.removeFromTop(30);
-    noiseTypeSelector.setBounds(noiseRow.removeFromLeft(noiseRow.getWidth() - 30).reduced(5, 0));
-    loadNoiseButton.setBounds(noiseRow.reduced(2));
+    noiseTypeSelector.setBounds(noiseRow.removeFromLeft(noiseRow.getWidth() - 60).reduced(5, 0));
+    loadNoiseButton.setBounds(noiseRow.removeFromLeft(30).reduced(2));
+    noiseSoloBtn.setBounds(noiseRow.reduced(2)); // Remaining 30px
     
     // Bottom Left: Feedback
     // Push down
+    leftCol.removeFromBottom(50);
     auto leftBottom = leftCol.removeFromBottom(knobH + 20);
     // FB Amt | FB Time | Space
     // We need to fit 3 knobs here.
@@ -530,14 +561,20 @@ void PhatRackAudioProcessorEditor::timerCallback()
 {
 
     // Update Transfer visualizer
-    auto pos = (aether::DistortionAlgo)(int)audioProcessor.apvts.getRawParameterValue("algoPos")->load();
-    auto neg = (aether::DistortionAlgo)(int)audioProcessor.apvts.getRawParameterValue("algoNeg")->load();
-    auto drive = audioProcessor.apvts.getRawParameterValue("drive")->load();
-    auto stages_raw = audioProcessor.apvts.getRawParameterValue("stages")->load();
-    auto stages = (int)stages_raw;
+    // --- Fetch Parameters Safely ---
+    auto getParamSafe = [&](juce::String id) -> float {
+        if (auto* p = audioProcessor.apvts.getRawParameterValue(id)) return p->load();
+        return 0.0f;
+    };
+
+    float drive = getParamSafe("drive");
+    float stages_raw = getParamSafe("stages");
+    int stages = (int)stages_raw;
     
-    float fold = audioProcessor.apvts.getRawParameterValue("fold")->load();
-    transferVis.setParams(pos, neg, drive, stages, fold);
+    float pos = getParamSafe("algoPos");
+    float neg = getParamSafe("algoNeg");
+    float fold = getParamSafe("fold");
+    transferVis.setParams((aether::DistortionAlgo)(int)pos, (aether::DistortionAlgo)(int)neg, drive, stages, fold);
     
     // Animate Transfer Dot
     float time = (float)juce::Time::getMillisecondCounter() * 0.002f;
@@ -545,42 +582,35 @@ void PhatRackAudioProcessorEditor::timerCallback()
     transferVis.updateInputLevel(sweep);
     
     // Update Orb & Scope
-    // REAL AUDIO REACTIVITY:
     float meter = audioProcessor.outputMeter.load();
     
-    // Fetch Basic Params
-    auto morph = audioProcessor.apvts.getRawParameterValue("morph")->load();
-    auto width = audioProcessor.apvts.getRawParameterValue("width")->load();
-    auto cutoff = audioProcessor.apvts.getRawParameterValue("cutoff")->load();
-    auto res = audioProcessor.apvts.getRawParameterValue("res")->load();
-
-    // Fetch Advanced Params
-    float noiseLvl = audioProcessor.apvts.getRawParameterValue("noiseLevel")->load();
-    float noiseDist = audioProcessor.apvts.getRawParameterValue("noiseWidth")->load();
-    float sub = audioProcessor.apvts.getRawParameterValue("sub")->load();
-    float squeeze = audioProcessor.apvts.getRawParameterValue("squeeze")->load();
-    float xover = audioProcessor.apvts.getRawParameterValue("xover")->load();
+    float morph = getParamSafe("morph");
+    float cutoff = getParamSafe("cutoff");
+    float res = getParamSafe("res");
+    float noiseLvl = getParamSafe("noiseLevel");
+    float noiseDist = getParamSafe("noiseWidth");
+    float sub = getParamSafe("sub");
     
-    float fbAmt = audioProcessor.apvts.getRawParameterValue("fbAmount")->load();
-    float fbTime = audioProcessor.apvts.getRawParameterValue("fbTime")->load();
-    // "scramble" is the internal ID for the Space/Plasma param
-    float fbSpace = 0.0f;
-    if (auto* p = audioProcessor.apvts.getRawParameterValue("scramble"))
-        fbSpace = p->load();
+    float eqLow = getParamSafe("eqLow");
+    float eqMid = getParamSafe("eqMid");
+    float eqHigh = getParamSafe("eqHigh");
+    
+    float fbAmt = getParamSafe("fbAmount");
+    float fbTime = getParamSafe("fbTime");
+    float fbSpace = getParamSafe("scramble");
 
-    float gain = audioProcessor.apvts.getRawParameterValue("output")->load();
-    float mix = audioProcessor.apvts.getRawParameterValue("mix")->load();
+    float gain = getParamSafe("output");
+    float mix = getParamSafe("mix");
+    float width = getParamSafe("width");
     
     // Update Orb
     orb.setLevel(meter); 
     orb.setMorph(morph); 
-    orb.setWidth(width); 
     orb.setDrive(drive); 
+    orb.setWidth(width); 
     
-    orb.setNoise(noiseLvl, noiseDist);
+    orb.setNoise(noiseLvl, 0.0f); 
     orb.setSub(sub);
-    orb.setSqueeze(squeeze);
-    orb.setXOver(xover);
     orb.setFilter(cutoff, res);
     orb.setFeedback(fbAmt, fbTime, fbSpace);
     orb.setGain(gain);

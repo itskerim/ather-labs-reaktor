@@ -99,8 +99,8 @@ void AetherAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 
     aetherEngine.prepare(spec);
     
-    // Pre-allocate dry buffer to max block size and channel count
-    dryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+    // Fortress: Pre-allocate to 16k samples. Never resize again.
+    dryBuffer.setSize(2, 16384, false, true, true);
 
     visualiser.setSamplesPerBlock(256);
     visualiser.setBufferSize(1024);
@@ -136,36 +136,42 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         buffer.clear (i, 0, buffer.getNumSamples());
 
     // --- Params ---
-    float drive = apvts.getRawParameterValue("drive")->load();
-    int stages = (int)apvts.getRawParameterValue("stages")->load();
-    auto algoPos = (aether::DistortionAlgo)(int)apvts.getRawParameterValue("algoPos")->load();
-    auto algoNeg = (aether::DistortionAlgo)(int)apvts.getRawParameterValue("algoNeg")->load();
+    // --- Paranoid Parameter Fetching ---
+    auto getParam = [&](juce::String id) -> float {
+        if (auto* p = apvts.getRawParameterValue(id)) return p->load();
+        return 0.0f;
+    };
+
+    float drive = getParam("drive");
+    int stages = (int)getParam("stages");
+    auto algoPos = (aether::DistortionAlgo)(int)getParam("algoPos");
+    auto algoNeg = (aether::DistortionAlgo)(int)getParam("algoNeg");
     
-    float cutoff = apvts.getRawParameterValue("cutoff")->load();
-    float res = apvts.getRawParameterValue("res")->load();
-    float morph = apvts.getRawParameterValue("morph")->load();
+    float cutoff = getParam("cutoff");
+    float res = getParam("res");
+    float morph = getParam("morph");
     
-    float fbAmount = apvts.getRawParameterValue("fbAmount")->load();
-    float fbTime = apvts.getRawParameterValue("fbTime")->load();
-    float scramble = *apvts.getRawParameterValue("scramble"); // Load Plasma
-    
-    float mix = apvts.getRawParameterValue("mix")->load();
-    float outputDb = apvts.getRawParameterValue("output")->load();
+    float fbAmount = getParam("fbAmount");
+    float fbTime = getParam("fbTime");
+    float scramble = getParam("scramble");
+    float mix = getParam("mix");
+    float outputDb = getParam("output");
 
     // Store Dry Signal for Mix (Zero Allocation)
-    // We only copy the active channels and samples for the current block
+    // Dry buffer is pre-allocated to 16k. We copy ONLY what's needed for this block.
+    int samplesToCopy = std::min((int)buffer.getNumSamples(), (int)dryBuffer.getNumSamples());
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
         if (ch < dryBuffer.getNumChannels())
-            dryBuffer.copyFrom(ch, 0, buffer.getReadPointer(ch), buffer.getNumSamples());
+            dryBuffer.copyFrom(ch, 0, buffer.getReadPointer(ch), samplesToCopy);
     }
-    float sub = *apvts.getRawParameterValue("sub");
-    float squeeze = *apvts.getRawParameterValue("squeeze");
-    float width = *apvts.getRawParameterValue("width");
-    float xover = *apvts.getRawParameterValue("xover");
-    
-    float fold = *apvts.getRawParameterValue("fold");
-    bool vowelMode = *apvts.getRawParameterValue("filterMode") > 0.5f;
+
+    float sub = getParam("sub");
+    float lowCut = getParam("lowCut");
+    float squeeze = getParam("squeeze");
+    float xover = getParam("xover");
+    float fold = getParam("fold");
+    bool vowelMode = getParam("filterMode") > 0.5f;
 
     // --- Get BPM ---
     double bpm = 120.0;
@@ -176,36 +182,41 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 bpm = *pos->getBpm();
     }
 
-    float noiseLevel = apvts.getRawParameterValue("noiseLevel")->load();
-    float noiseWidth = apvts.getRawParameterValue("noiseWidth")->load();
-    int noiseType = (int)apvts.getRawParameterValue("noiseType")->load();
+    float noiseLevel = getParam("noiseLevel");
+    float noiseWidth = getParam("noiseWidth");
+    int noiseType = (int)getParam("noiseType");
+    bool noiseSolo = getParam("noiseSolo") > 0.5f;
 
-    // Process Audio
-    aetherEngine.process(buffer, drive, 0.0f, stages, algoPos, algoNeg, cutoff, res, morph, fbAmount, fbTime, scramble, sub, squeeze, bpm, width, xover, fold, vowelMode, noiseLevel, noiseWidth, noiseType);
+    float width = getParam("width");
+
+    // --- Process Audio (Now includes LowCut, Squeeze, XOver) ---
+    aetherEngine.process(buffer, drive, mix, stages, algoPos, algoNeg, cutoff, res, morph, 
+                         fbAmount, fbTime, scramble, sub, lowCut, bpm, 
+                         squeeze, xover, fold, vowelMode, 
+                         noiseLevel, noiseWidth, noiseType, noiseSolo, width);
     
-    // Apply Mix
-    // Apply Mix (Standard Linear Crossfade)
-    // "Parallel Chain" feel: Ensure we blend properly without volume dip bug
-    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    // --- DRY/WET MIX ---
+    if (!noiseSolo && mix < 0.99f)
     {
-        auto* wet = buffer.getWritePointer(ch);
-        const auto* dry = dryBuffer.getReadPointer(ch);
-        
-        for (int s = 0; s < buffer.getNumSamples(); ++s)
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         {
-            // Standard Mix: Wet*Mix + Dry*(1-Mix)
-            // This allows full Wet (Mix=1) and full Dry (Mix=0)
-            wet[s] = wet[s] * mix + dry[s] * (1.0f - mix);
+            auto* wet = buffer.getWritePointer(ch);
+            const auto* dry = dryBuffer.getReadPointer(ch);
+            for (int s = 0; s < buffer.getNumSamples(); ++s)
+            {
+                wet[s] = dry[s] * (1.0f - mix) + wet[s] * mix;
+            }
         }
     }
 
+    // --- VISUALIZATION DATA ---
     for (int s = 0; s < buffer.getNumSamples(); ++s)
     {
-        // Average channels for mono visualizer
         float sum = 0;
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             sum += buffer.getSample(ch, s);
-        audioFifo.push(sum / buffer.getNumChannels());
+        
+        audioFifo.push(sum / (float)std::max(1, buffer.getNumChannels()));
     }
 
     visualiser.pushBuffer(buffer);
@@ -268,27 +279,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
     layout.add(std::make_unique<juce::AudioParameterFloat>("fbTime", "Feedback Time", 0.1f, 500.0f, 20.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("scramble", "Plasma/Scramble", 0.0f, 1.0f, 0.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("fold", "Wavefolder", 0.0f, 1.0f, 0.0f)); 
+    layout.add(std::make_unique<juce::AudioParameterFloat>("lowCut", "Distortion Low Cut", juce::NormalisableRange<float>(20.0f, 2000.0f, 1.0f, 0.3f), 20.0f));
     
     // --- Modes ---
     layout.add(std::make_unique<juce::AudioParameterBool>("filterMode", "Vowel Mode", false)); // False=Morph, True=Formant
     
-    // --- Neuro Engine (New) ---
+    // --- Neuro Engine ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("sub", "Sub Level", 0.0f, 2.0f, 1.0f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>("squeeze", "Squeeze (OTT)", 0.0f, 1.0f, 0.0f)); // Default 0% (Perfect Sphere)
-    
-    // --- DnB Essentials (New) ---
-    layout.add(std::make_unique<juce::AudioParameterFloat>("width", "Hyper Width", 0.0f, 1.5f, 0.0f)); // 0 = Mono/Bypass, 1.5 = Super Wide
-    layout.add(std::make_unique<juce::AudioParameterFloat>("xover", "Crossover Freq", 60.0f, 300.0f, 150.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("squeeze", "Squeeze", 0.0f, 1.0f, 0.0f)); 
+    layout.add(std::make_unique<juce::AudioParameterFloat>("xover", "Crossover", juce::NormalisableRange<float>(60.0f, 800.0f, 1.0f, 0.4f), 150.0f)); 
+
 
     // --- Global & UI ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("output", "Output Gain", juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("mix", "Dry/Wet", 0.0f, 1.0f, 1.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>("width", "Width", 0.0f, 2.0f, 1.0f));
 
     // --- Noise Engine ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("noiseLevel", "Noise Level", 0.0f, 1.0f, 0.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>("noiseWidth", "Noise Distortion", 0.0f, 1.0f, 0.0f)); // Renamed Width to Distortion
     juce::StringArray noiseTypes; noiseTypes.add("White"); noiseTypes.add("Pink"); noiseTypes.add("Crackle"); noiseTypes.add("Custom");
     layout.add(std::make_unique<juce::AudioParameterChoice>("noiseType", "Noise Type", noiseTypes, 0));
+    layout.add(std::make_unique<juce::AudioParameterBool>("noiseSolo", "Noise Solo", false));
 
     return layout;
 }

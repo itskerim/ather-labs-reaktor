@@ -17,6 +17,9 @@ public:
         : forwardFFT(fftOrder), 
           window(fftSize, juce::dsp::WindowingFunction<float>::hann)
     {
+        std::fill(fifo.begin(), fifo.end(), 0.0f);
+        std::fill(fftData.begin(), fftData.end(), 0.0f);
+        std::fill(scopeData.begin(), scopeData.end(), 0.0f);
         startTimerHz(60); 
     }
     
@@ -92,6 +95,7 @@ public:
              
              // Magnitude to DB
              float mag = juce::Decibels::gainToDecibels(scopeData[i]) - juce::Decibels::gainToDecibels((float)fftSize);
+             mag = std::max(mag, -100.0f); // Clamp to prevent -inf/NaN
              float normY = juce::jmap(mag, -100.0f, 0.0f, 0.0f, 0.9f); // Increased height scale (Max 90% of height)
              
              // --- CHAOS JITTER ---

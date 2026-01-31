@@ -44,25 +44,28 @@ public:
 
     // Audio Visualization FIFO
     struct AudioFIFO {
-        static constexpr int size = 4096;
+        static constexpr uint32_t size = 4096;
+        static constexpr uint32_t mask = size - 1; // Bitwise mask for power-of-two
         float buffer[size] {0};
-        std::atomic<int> writeIndex {0};
-        std::atomic<int> readIndex {0};
+        std::atomic<uint32_t> writeIndex {0};
+        std::atomic<uint32_t> readIndex {0};
         
         void push(float samples) {
-            buffer[writeIndex.load() % size] = samples;
+            buffer[writeIndex.load() & mask] = samples;
             writeIndex++;
         }
         
         void pull(juce::AudioBuffer<float>& out) {
-            int w = writeIndex.load();
-            int r = readIndex.load();
-            int count = std::min((int)out.getNumSamples(), w - r);
-            if (count <= 0) return;
+            uint32_t w = writeIndex.load();
+            uint32_t r = readIndex.load();
+            if (w <= r) return;
+            
+            uint32_t count = std::min((uint32_t)out.getNumSamples(), w - r);
+            if (count > size) count = size; // Clamp to buffer size
             
             auto* d = out.getWritePointer(0);
-            for (int i=0; i<count; ++i) {
-                d[i] = buffer[(r + i) % size];
+            for (uint32_t i=0; i<count; ++i) {
+                d[i] = buffer[(r + i) & mask];
             }
             readIndex += count;
         }
