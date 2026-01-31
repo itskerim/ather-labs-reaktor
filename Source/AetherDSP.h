@@ -299,7 +299,7 @@ public:
         auto* upR = numChannels > 1 ? upsampledBlock.getChannelPointer(1) : nullptr;
         int upSamples = (int)upsampledBlock.getNumSamples();
         
-        eq.updateBands(eqLow, eqMid, eqHigh, currentSampleRate * 4.0);
+        // Distortion Row processing happens below...
 
         for (int s = 0; s < upSamples; ++s)
         {

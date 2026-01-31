@@ -40,9 +40,8 @@ private:
     juce::TooltipWindow tooltipWindow; // Separate init if needed
 
     // --- MAIN ENGINE CONTROLS ---
-    juce::Slider driveSlider;
     aether::AetherReactorTank stagesReactor; 
-    juce::Label driveLabel, stagesLabel;
+    juce::Label stagesLabel;
     
     // --- BIPOLAR SIDEBARS ---
     aether::AetherAlgorithmSelector posSelector, negSelector;
@@ -115,6 +114,10 @@ private:
     juce::TextButton helpButton { "?" };
     juce::Label presetLabel;
 
+    // --- DISTORTION ---
+    juce::Slider driveSlider, lowCutSlider, foldSlider;
+    juce::Label driveLabel, lowCutLabel, foldLabel;
+
     // --- FILTER MODULE ---
     juce::Slider cutoffSlider, resSlider, morphSlider;
     juce::Label cutoffLabel, resLabel, morphLabel;
@@ -125,8 +128,8 @@ private:
     juce::Label fbAmountLabel, fbTimeLabel;
 
     // --- EXPERIMENTAL ---
-    juce::Slider foldSlider, spaceSlider;
-    juce::Label foldLabel, spaceLabel;
+    juce::Slider spaceSlider;
+    juce::Label spaceLabel;
     
     // --- GLOBAL ---
     juce::Slider outputSlider, mixSlider, subSlider, widthSlider;

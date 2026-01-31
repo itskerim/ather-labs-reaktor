@@ -64,10 +64,38 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     driveSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xff00d4ff));
     addAndMakeVisible(driveSlider);
     driveAtt = std::make_unique<Attachment>(audioProcessor.apvts, "drive", driveSlider);
-    
-    driveLabel.setText("DRIVE", juce::dontSendNotification);
+    driveLabel.setText("DISTORT", juce::dontSendNotification);
     driveLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(driveLabel);
+
+    lowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    lowCutSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(lowCutSlider);
+    lowCutAtt = std::make_unique<Attachment>(audioProcessor.apvts, "lowCut", lowCutSlider);
+    lowCutLabel.setText("LOW CUT", juce::dontSendNotification);
+    lowCutLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(lowCutLabel);
+
+    lowCutSlider.onValueChange = [this] {
+        if (lowCutSlider.isMouseOverOrDragging())
+        {
+            float val = (float)lowCutSlider.getValue();
+            juce::String freqStr;
+            if (val >= 1000.0f) freqStr = juce::String(val / 1000.0f, 2) + " kHz";
+            else freqStr = juce::String((int)val) + " Hz";
+            lowCutLabel.setText(freqStr, juce::dontSendNotification);
+        }
+    };
+    lowCutSlider.onDragStart = [this] { lowCutSlider.onValueChange(); };
+    lowCutSlider.onDragEnd = [this] { lowCutLabel.setText("LOW CUT", juce::dontSendNotification); };
+
+    foldSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    foldSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible(foldSlider);
+    foldAtt = std::make_unique<Attachment>(audioProcessor.apvts, "fold", foldSlider);
+    foldLabel.setText("FOLD", juce::dontSendNotification);
+    foldLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(foldLabel);
 
     stagesReactor.onValueChanged = [this](int val) {
         if (auto* p = audioProcessor.apvts.getParameter("stages"))
@@ -156,14 +184,6 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     foldLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(foldLabel);
 
-    eqLowSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    eqLowSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    addAndMakeVisible(eqLowSlider);
-    eqLowAtt = std::make_unique<Attachment>(audioProcessor.apvts, "eqLow", eqLowSlider);
-    eqLowLabel.setText("LOW", juce::dontSendNotification);
-    eqLowLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(eqLowLabel);
-
     // --- Noise Engine ---
     noiseLevelSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     noiseLevelSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -177,7 +197,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     noiseWidthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     addAndMakeVisible(noiseWidthSlider);
     noiseWidthAtt = std::make_unique<Attachment>(audioProcessor.apvts, "noiseWidth", noiseWidthSlider);
-    noiseWidthLabel.setText("DISTORT", juce::dontSendNotification);
+    noiseWidthLabel.setText("CRUNCH", juce::dontSendNotification);
     noiseWidthLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(noiseWidthLabel);
 
@@ -395,14 +415,13 @@ void PhatRackAudioProcessorEditor::resized()
     // Lifted up to give spacing from bottom
     auto deck = area.removeFromBottom(135);
     
-    // Deck Layout: [Sub] ... [EQ Low | Mid | High] ... [Width] ... [Out | Mix]
-    // We now have 7 knobs.
+    // Deck Layout: [Sub] [X-Over] [Squeeze] [Width] [Out] [Mix]
+    // 6 Knobs
     int knobSize = juce::jmin(80, deck.getHeight() - 30);
     int gap = 15;
     int groupGap = 40;
     
-    // Calculate total width
-    int totalDeckW = (knobSize * 7) + (gap * 5) + (groupGap * 3);
+    int totalDeckW = (knobSize * 6) + (gap * 5) + (groupGap * 2);
     int startX = deck.getCentreX() - (totalDeckW / 2);
     // Lift knobs slightly higher in the deck area
     int y = deck.getCentreY() - (knobSize / 2) - 5; 
@@ -415,24 +434,19 @@ void PhatRackAudioProcessorEditor::resized()
     
     int currentX = startX;
     
-    // Group 1: Bass
+    // Group 1: Split & Tone
     placeDeckKnob(subSlider, subLabel, currentX);
+    placeDeckKnob(xoverSlider, xoverLabel, currentX);
     
     currentX += groupGap; // Gap
     
-    // Group 2: Texture / EQ
-    placeDeckKnob(eqLowSlider, eqLowLabel, currentX);
-    placeDeckKnob(eqMidSlider, eqMidLabel, currentX);
-    placeDeckKnob(eqHighSlider, eqHighLabel, currentX);
-    
-    currentX += groupGap; // Gap
-    
-    // Group 3: Imaging
+    // Group 2: Texture & Imaging
+    placeDeckKnob(squeezeSlider, squeezeLabel, currentX);
     placeDeckKnob(widthSlider, widthLabel, currentX);
     
     currentX += groupGap; // Gap
     
-    // Group 4: Master
+    // Group 3: Master
     placeDeckKnob(outputSlider, outputLabel, currentX);
     placeDeckKnob(mixSlider, mixLabel, currentX);
 
@@ -498,18 +512,27 @@ void PhatRackAudioProcessorEditor::resized()
         }
     };
     
-    // LEFT COLUMN (Distortion + Noise)
-    // Row 1: Drive | Fold
-    placeRow(leftCol, driveSlider, driveLabel, &foldSlider, &foldLabel);
+    // --- LEFT COLUMN (Distortion Section) ---
+    // Row 1 (Small): Noise | Crunch | Fold
+    auto row1 = leftCol.removeFromTop(knobH + 20);
+    int itemW1 = row1.getWidth() / 3;
+    noiseLevelSlider.setBounds(row1.getX(), row1.getY(), itemW1, knobH);
+    noiseLevelLabel.setBounds(noiseLevelSlider.getX(), noiseLevelSlider.getBottom() - 12, itemW1, 20);
     
-    // Row 2: Noise Level | Noise Width
-    auto noiseRow1 = leftCol.removeFromTop(knobH + 20);
-    int itemW = noiseRow1.getWidth() / 2;
-    noiseLevelSlider.setBounds(noiseRow1.getX(), noiseRow1.getY(), itemW, knobH);
-    noiseLevelLabel.setBounds(noiseLevelSlider.getX(), noiseLevelSlider.getBottom()-12, itemW, 20);
+    noiseWidthSlider.setBounds(row1.getX() + itemW1, row1.getY(), itemW1, knobH);
+    noiseWidthLabel.setBounds(noiseWidthSlider.getX(), noiseWidthSlider.getBottom() - 12, itemW1, 20);
     
-    noiseWidthSlider.setBounds(noiseRow1.getX() + itemW, noiseRow1.getY(), itemW, knobH);
-    noiseWidthLabel.setBounds(noiseWidthSlider.getX(), noiseWidthSlider.getBottom()-12, itemW, 20);
+    foldSlider.setBounds(row1.getX() + itemW1 * 2, row1.getY(), itemW1, knobH);
+    foldLabel.setBounds(foldSlider.getX(), foldSlider.getBottom() - 12, itemW1, 20);
+    
+    // Row 2 (Large): Distort | Low Cut
+    auto row2 = leftCol.removeFromTop(knobH + 20);
+    int itemW2 = row2.getWidth() / 2;
+    driveSlider.setBounds(row2.getX(), row2.getY(), itemW2, knobH);
+    driveLabel.setBounds(driveSlider.getX(), driveSlider.getBottom() - 12, itemW2, 20);
+    
+    lowCutSlider.setBounds(row2.getX() + itemW2, row2.getY(), itemW2, knobH);
+    lowCutLabel.setBounds(lowCutSlider.getX(), lowCutSlider.getBottom() - 12, itemW2, 20);
     
     // Row 3: Noise Type (Now lower)
     auto noiseRow = leftCol.removeFromTop(30);
@@ -590,10 +613,6 @@ void PhatRackAudioProcessorEditor::timerCallback()
     float noiseLvl = getParamSafe("noiseLevel");
     float noiseDist = getParamSafe("noiseWidth");
     float sub = getParamSafe("sub");
-    
-    float eqLow = getParamSafe("eqLow");
-    float eqMid = getParamSafe("eqMid");
-    float eqHigh = getParamSafe("eqHigh");
     
     float fbAmt = getParamSafe("fbAmount");
     float fbTime = getParamSafe("fbTime");
