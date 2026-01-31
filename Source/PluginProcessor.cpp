@@ -274,7 +274,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
     
     // --- Neuro Engine (New) ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("sub", "Sub Level", 0.0f, 2.0f, 1.0f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>("squeeze", "Squeeze (OTT)", 0.0f, 1.0f, 0.4f)); // Default 40%
+    layout.add(std::make_unique<juce::AudioParameterFloat>("squeeze", "Squeeze (OTT)", 0.0f, 1.0f, 0.0f)); // Default 0% (Perfect Sphere)
     
     // --- DnB Essentials (New) ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("width", "Hyper Width", 0.0f, 1.5f, 0.0f)); // 0 = Mono/Bypass, 1.5 = Super Wide

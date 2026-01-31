@@ -8,6 +8,11 @@
     Description:
     Wide noise generator for injection into distortion stages.
     Supports White, Pink, and Crackle types with stereo spreading.
+    
+    Thread-Safe Custom Noise Loading:
+    Uses a Double-Buffer/Swap mechanism with a CriticalSection to safely
+    exchange buffers between the UI thread (Loader) and Audio Thread (Reader).
+    The Audio Thread uses a TryLock to prevent blocking/priority inversion.
 
   ==============================================================================
 */
@@ -16,6 +21,8 @@
 
 #include "AetherCommon.h"
 #include <juce_core/juce_core.h>
+#include <memory>
+#include <cmath>
 
 namespace aether
 {
@@ -41,12 +48,20 @@ public:
         hpL_x1 = 0; hpL_y1 = 0; hpR_x1 = 0; hpR_y1 = 0;
         hpL_x2 = 0; hpL_y2 = 0; hpR_x2 = 0; hpR_y2 = 0;
         
+        // Reset Custom Position (Thread Safe)
+        const juce::ScopedLock sl(lock);
         customPos = 0;
     }
     
     void setCustomSample(const juce::AudioBuffer<float>& newSample)
     {
-        customBuffer.makeCopyOf(newSample);
+        // Allocate and copy on UI thread (or caller thread)
+        auto newBuf = std::make_unique<juce::AudioBuffer<float>>();
+        newBuf->makeCopyOf(newSample);
+        
+        // Swap Pointer Safely
+        const juce::ScopedLock sl(lock);
+        customBuffer = std::move(newBuf);
         customPos = 0;
     }
 
@@ -54,7 +69,6 @@ public:
     {
         // 1. GATED NOISE
         // The noise volume follows the input signal envelope (sidechain/gate effect)
-        // envelope comes from the main engine (Flux/RMS)
         float gatedVol = volume * envelope; 
         
         // Min threshold to avoid processing silence
@@ -102,32 +116,35 @@ public:
                 break;
                 
             case NoiseType::Custom:
-                if (customBuffer.getNumSamples() > 0)
+            {
+                // REAL-TIME SAFETY: Use TryLock
+                // If the UI is currently swapping the buffer (milliseconds),
+                // we simply skip one sample rather than blocking the audio thread.
+                const juce::ScopedTryLock sl(lock);
+                
+                if (sl.isLocked() && customBuffer && customBuffer->getNumSamples() > 0)
                 {
-                    nL = customBuffer.getSample(0, customPos);
+                    nL = customBuffer->getSample(0, customPos);
                     // Use Right channel if available, else duplicate Left
-                    if (customBuffer.getNumChannels() > 1)
-                        nR = customBuffer.getSample(1, customPos);
+                    if (customBuffer->getNumChannels() > 1)
+                        nR = customBuffer->getSample(1, customPos);
                     else
                         nR = nL;
                         
                     customPos++;
-                    if (customPos >= customBuffer.getNumSamples()) customPos = 0;
+                    if (customPos >= customBuffer->getNumSamples()) customPos = 0;
                 }
-                break;
+                // If lock failed or buffer empty, nL/nR remain 0 (Silence)
+            }
+            break;
         }
 
         // --- 2. DISTORTION (Replaces "Width") ---
-        // User requested "Distortion instead of Wider" for highs.
-        // We apply a Drive + Hard Clip to the noise signal.
         if (distortion > 0.0f)
         {
             float drive = 1.0f + (distortion * 20.0f); // Up to 20x gain
             nL = std::tanh(nL * drive);
             nR = std::tanh(nR * drive);
-            
-            // Bitcrush-like artifact (Sample Hold) if distortion is high?
-            // Keep it simple: Hard Driver.
         }
         
         // --- 3. LOW CUT (High Pass @ ~500Hz) ---
@@ -169,8 +186,9 @@ private:
     float hpL_x1, hpL_y1, hpR_x1, hpR_y1;
     float hpL_x2, hpL_y2, hpR_x2, hpR_y2;
     
-    // Custom Sample
-    juce::AudioBuffer<float> customBuffer;
+    // Custom Sample (Thread Safe)
+    juce::CriticalSection lock;
+    std::unique_ptr<juce::AudioBuffer<float>> customBuffer;
     int customPos = 0;
 };
 

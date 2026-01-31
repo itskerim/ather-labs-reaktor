@@ -76,8 +76,7 @@ public:
             for(int i=0; i<scopeSize; ++i)
             {
                  float val = fftData[i];
-                 // Basic smoothing: Higher intensity = more "nervous" movement
-                 float rise = 0.3f + intensity * 0.4f;
+                 float rise = 0.15f + intensity * 0.2f; // Slower, smoother default
                  scopeData[i] = scopeData[i] * (1.0f - rise) + val * rise;
             }
         }
@@ -93,14 +92,14 @@ public:
              
              // Magnitude to DB
              float mag = juce::Decibels::gainToDecibels(scopeData[i]) - juce::Decibels::gainToDecibels((float)fftSize);
-             float normY = juce::jmap(mag, -100.0f, 0.0f, 0.0f, 1.0f);
+             float normY = juce::jmap(mag, -100.0f, 0.0f, 0.0f, 0.9f); // Increased height scale (Max 90% of height)
              
              // --- CHAOS JITTER ---
              // Add harmonic "vibration" based on chaos param
              float jitter = 0.0f;
-             if (chaosValue > 0.1f)
+             if (chaosValue > 0.01f) // Lower threshold
              {
-                 jitter = std::sin(time + i * 0.5f) * chaosValue * 15.0f * normY;
+                 jitter = std::sin(time + i * 0.5f) * chaosValue * 2.0f * normY; // Reduce scale
              }
 
              float x = w * skews; 
@@ -114,16 +113,16 @@ public:
         p.lineTo(w, h);
         p.closeSubPath();
         
-        // Fill (Reactive Gradient)
-        g.setGradientFill(juce::ColourGradient(activeCol.withAlpha(0.5f), 0, h, 
-             activeCol.withAlpha(0.05f), 0, 10, false));
+        // Fill (Reactive Gradient) - MORE VISIBLE
+        g.setGradientFill(juce::ColourGradient(activeCol.withAlpha(0.3f), 0, h, 
+             activeCol.withAlpha(0.0f), 0, h * 0.5f, false));
         g.fillPath(p);
         
-        // Stroke (Laser Line with Glow)
+        // Stroke (Laser Line with Glow) - BRIGHTER
         g.setColour(activeCol.withAlpha(0.4f));
-        g.strokePath(p, juce::PathStrokeType(3.5f)); // Soft Glow
-        g.setColour(activeCol);
-        g.strokePath(p, juce::PathStrokeType(1.5f)); // Core Line
+        g.strokePath(p, juce::PathStrokeType(3.0f)); // Soft Glow
+        g.setColour(activeCol.withAlpha(0.9f));      // Core Line (Almost Solid)
+        g.strokePath(p, juce::PathStrokeType(2.0f)); // Thicker Line
     }
     
     void timerCallback() override { repaint(); }

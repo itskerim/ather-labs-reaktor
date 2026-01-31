@@ -216,7 +216,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     spaceSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     spaceSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     addAndMakeVisible(spaceSlider);
-    spaceAtt = std::make_unique<Attachment>(audioProcessor.apvts, "space", spaceSlider);
+    spaceAtt = std::make_unique<Attachment>(audioProcessor.apvts, "scramble", spaceSlider);
     spaceLabel.setText("SPACE", juce::dontSendNotification);
     spaceLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(spaceLabel);
@@ -260,7 +260,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     addChildComponent(subSlider); // Add but potentially manage layout in resized
     subSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffffffff));
     addAndMakeVisible(subSlider);
-    subAtt = std::make_unique<Attachment>(audioProcessor.apvts, "subLevel", subSlider);
+    subAtt = std::make_unique<Attachment>(audioProcessor.apvts, "sub", subSlider);
     
     subLabel.setText("SUB", juce::dontSendNotification);
     subLabel.setJustificationType(juce::Justification::centred);
@@ -295,12 +295,11 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     mixLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(mixLabel);
 
-    startTimerHz(60); // 60 FPS for smooth Orb animation
-    
-    // UX Improvements: Resizable Window
-    setResizable(true, true);
-    setResizeLimits(800, 600, 1600, 1200);
+    // UX Improvements: Fixed Size (Resizing breaks model)
+    setResizable(false, false);
     setSize (1000, 700);
+    
+    startTimerHz(60); // 60 FPS for smooth Orb animation
 }
 
 PhatRackAudioProcessorEditor::~PhatRackAudioProcessorEditor()
@@ -314,12 +313,38 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll(juce::Colour(0xff050505)); 
     
     // --- Subtle Cyber Grid (Holodeck) ---
-    g.setColour(juce::Colour(0xff1a1a1a));
     float gridSz = 40.0f;
     
     // Grid alignment correction
     int startY = 80; 
     
+    // BRANDING: "REAKTOR" (Behind everything)
+    // User Request: "3% opacity" -> "1% opacity", "20% smaller", "Changes color with morph"
+    
+    // 1. Calculate Dynamic Color (Replicating Orb Logic for consistency)
+    auto& apvts = audioProcessor.apvts;
+    float morph = apvts.getRawParameterValue("morph")->load();
+    float cutoff = apvts.getRawParameterValue("cutoff")->load();
+    float res = apvts.getRawParameterValue("res")->load();
+
+    float normCutoff = (std::log(cutoff) - std::log(80.0f)) / (std::log(20000.0f) - std::log(80.0f));
+    normCutoff = std::clamp(normCutoff, 0.0f, 1.0f);
+
+    // Warm (Cyan) -> Cool (Purple)
+    juce::Colour warm = juce::Colour::fromHSV(0.5f + (1.0f - normCutoff) * 0.05f, 0.85f, 0.9f + res*0.1f, 1.0f);
+    juce::Colour cool = juce::Colour::fromHSV(0.78f + normCutoff * 0.1f, 0.85f, 0.9f, 1.0f);
+    
+    juce::Colour brandCol = warm.interpolatedWith(cool, morph);
+    
+    g.setColour(brandCol.withAlpha(0.01f)); // 1% Opacity (Super faint)
+    
+    // 20% smaller than 250 = 200
+    g.setFont(juce::Font("Futura", 200.0f, juce::Font::bold)); 
+    g.drawText("REAKTOR", getLocalBounds(), juce::Justification::centred, true);
+
+    // --- Subtle Cyber Grid (Holodeck) ---
+    g.setColour(juce::Colours::white.withAlpha(0.10f));
+
     for (float x = 0; x < getWidth(); x += gridSz)
         g.drawVerticalLine((int)x, (float)startY, (float)getHeight());
     for (float y = startY; y < getHeight(); y += gridSz)
@@ -348,8 +373,9 @@ void PhatRackAudioProcessorEditor::resized()
     logo.setBounds(header.removeFromLeft(300).reduced(10));
     
     // --- 2. FOOTER / DECK (Bottom 100px) ---
-    // Contains the Global Controls
-    auto deck = area.removeFromBottom(110);
+    // --- 2. FOOTER / DECK (Bottom 135px) ---
+    // Lifted up to give spacing from bottom
+    auto deck = area.removeFromBottom(135);
     
     // Deck Layout: [Sub|XOver] ... [Squeeze|Width] ... [Out|Mix]
     // We used to have 6 knobs. Let's center them.
@@ -360,7 +386,8 @@ void PhatRackAudioProcessorEditor::resized()
     // Calculate total width
     int totalDeckW = (knobSize * 6) + (gap * 4) + (groupGap * 2);
     int startX = deck.getCentreX() - (totalDeckW / 2);
-    int y = deck.getCentreY() - (knobSize / 2) + 5;
+    // Lift knobs slightly higher in the deck area
+    int y = deck.getCentreY() - (knobSize / 2) - 5; 
     
     auto placeDeckKnob = [&](juce::Slider& s, juce::Label& l, int& x) {
         s.setBounds(x, y, knobSize, knobSize);
@@ -386,35 +413,36 @@ void PhatRackAudioProcessorEditor::resized()
     placeDeckKnob(outputSlider, outputLabel, currentX);
     placeDeckKnob(mixSlider, mixLabel, currentX);
 
-    // --- 3. OSCILLOSCOPE (Above Deck) ---
-    auto oscArea = area.removeFromBottom(60).reduced(10, 0); // reduced width slightly?
-    osc.setBounds(oscArea);
+    // --- 3. OSCILLOSCOPE (Bottom Underlay) ---
+    // User Request: "More visible and 100px height"
+    osc.setBounds(0, getHeight() - 100, getWidth(), 100);
+    
+    // Z-Order Management
+    // 1. Osc to back (index 0)
+    // 2. Orb to back (index 0 implies Osc becomes index 1) -> Orb is BEHIND Osc.
+    // Result: [BG -> Orb -> Osc -> Knobs]
+    osc.toBack();
+    orb.toBack(); 
 
     // --- 4. MAIN WORKSPACE ---
     auto grid = area.reduced(10);
     
-    // Calculate Column Widths based on remaining space
-    // Design calls for: [Left Column] [Center Orb] [Right Column]
-    // We want the Orb to be maximum size in the center.
+    // ORB BACKGROUND (Full Screen)
+    // Restore bounds so it's visible!
+    orb.setBounds(getLocalBounds());
     
+    // Calculate Column Widths based on remaining space
     int colWidth = 110; 
     
-    auto leftCol = grid.removeFromLeft(colWidth * 2); // 2 knobs wide roughly
+    auto leftCol = grid.removeFromLeft(colWidth * 2); 
     auto rightCol = grid.removeFromRight(colWidth * 2);
     
-    // CENTER: THE ORB
-    auto centerArea = grid;
-    int orbSize = juce::jmin(centerArea.getWidth(), centerArea.getHeight());
-    orbSize = juce::jmin(orbSize, 360); // Max cap
-    orb.setBounds(centerArea.getCentreX() - orbSize/2, centerArea.getCentreY() - orbSize/2, orbSize, orbSize);
-    
     // CENTER OVERLAYS
-    // Morph Slider: Above Orb, or Inside?
-    // Previous layout: Above Morph was Transfer Vis.
-    // Morph Slider at Center Top of Orb? 
-    // Let's place Morph Slider centered above the Orb, and Transfer Vis above that.
+    // We still need 'centerArea' reference for positioning the Morph slider and Viz
+    auto centerArea = grid;
     
-    int centerTopY = orb.getY() - 10;
+    // Use centerArea (which is the middle column space) for X alignment.
+    int centerTopY = centerArea.getCentreY() - 170; // Hardcoded shift up to clear the Orb center
     
     // Morph Slider
     morphSlider.setBounds(centerArea.getCentreX() - 40, centerTopY - 60, 80, 80);
@@ -462,19 +490,19 @@ void PhatRackAudioProcessorEditor::resized()
     // Bottom Left: Feedback
     // Push down
     auto leftBottom = leftCol.removeFromBottom(knobH + 20);
-    // FB Amt | FB Time (Space moved?)
-    // Let's squeeze 3 here? Or just 2? 
-    // Previous: Amt, Time, Space
-    // Space is valuable. Let's put Space in Right Col bottom or squeeze 3.
-    // Let's try to fit 2 here (Amt/Time) and put Space elsewhere or tightly.
-    // Actually, Space fits nicely in Right Col.
-    
+    // FB Amt | FB Time | Space
+    // We need to fit 3 knobs here.
+    // Let's ensure there is space.
+    // Place Amt and Time side-by-side
     fbAmountSlider.setBounds(leftBottom.getX(), leftBottom.getY(), 90, 90);
     fbAmountLabel.setBounds(fbAmountSlider.getX(), fbAmountSlider.getBottom()-12, 90, 20);
     
     fbTimeSlider.setBounds(leftBottom.getRight() - 90, leftBottom.getY(), 90, 90);
     fbTimeLabel.setBounds(fbTimeSlider.getX(), fbTimeSlider.getBottom()-12, 90, 20);
     
+    // Put SPACE centered BELOW them
+    spaceSlider.setBounds(leftBottom.getCentreX() - 40, leftBottom.getY() + 85, 80, 80);
+    spaceLabel.setBounds(spaceSlider.getX(), spaceSlider.getBottom()-10, 80, 20);
     
     // RIGHT COLUMN (Filter + Reactor)
     // Row 1: Cutoff | Res
@@ -485,16 +513,7 @@ void PhatRackAudioProcessorEditor::resized()
     filterModeBtn.setBounds(modeRow.reduced(20, 2));
 
     // Bottom Right: Reactor Area
-    // Previous: StagesTank, StagesLabel
-    // Let's put Space here too?
-    // Or Space in Left bottom and Feedback gets cramped?
-    // Let's put Space Slider above the Reactor Tank
-    
     auto rightBottom = rightCol.removeFromBottom(160); // Tank height
-    
-    // Place Space Slider above Tank
-    spaceSlider.setBounds(rightBottom.getX() + 10, rightBottom.getY() - 90, 80, 80);
-    spaceLabel.setBounds(spaceSlider.getX(), spaceSlider.getBottom()-10, 80, 20);
     
     stagesReactor.setBounds(rightBottom.getRight() - 60, rightBottom.getBottom() - 150, 50, 140);
     stagesLabel.setBounds(stagesReactor.getX() - 50, stagesReactor.getBottom(), 100, 20);
@@ -529,31 +548,77 @@ void PhatRackAudioProcessorEditor::timerCallback()
     // REAL AUDIO REACTIVITY:
     float meter = audioProcessor.outputMeter.load();
     
-    // Get Morph & Cutoff for Reactivity
+    // Fetch Basic Params
     auto morph = audioProcessor.apvts.getRawParameterValue("morph")->load();
     auto width = audioProcessor.apvts.getRawParameterValue("width")->load();
+    auto cutoff = audioProcessor.apvts.getRawParameterValue("cutoff")->load();
+    auto res = audioProcessor.apvts.getRawParameterValue("res")->load();
+
+    // Fetch Advanced Params
+    float noiseLvl = audioProcessor.apvts.getRawParameterValue("noiseLevel")->load();
+    float noiseDist = audioProcessor.apvts.getRawParameterValue("noiseWidth")->load();
+    float sub = audioProcessor.apvts.getRawParameterValue("sub")->load();
+    float squeeze = audioProcessor.apvts.getRawParameterValue("squeeze")->load();
+    float xover = audioProcessor.apvts.getRawParameterValue("xover")->load();
     
-    orb.setLevel(meter); // Drives expansion and "Dancing"
-    orb.setMorph(morph); // Drives color and Shape distortion
-    orb.setWidth(width); // Drives Horizontal stretch
-    orb.setDrive(drive); // Drives Base Size
+    float fbAmt = audioProcessor.apvts.getRawParameterValue("fbAmount")->load();
+    float fbTime = audioProcessor.apvts.getRawParameterValue("fbTime")->load();
+    // "scramble" is the internal ID for the Space/Plasma param
+    float fbSpace = 0.0f;
+    if (auto* p = audioProcessor.apvts.getRawParameterValue("scramble"))
+        fbSpace = p->load();
+
+    float gain = audioProcessor.apvts.getRawParameterValue("output")->load();
+    float mix = audioProcessor.apvts.getRawParameterValue("mix")->load();
+    
+    // Update Orb
+    orb.setLevel(meter); 
+    orb.setMorph(morph); 
+    orb.setWidth(width); 
+    orb.setDrive(drive); 
+    
+    orb.setNoise(noiseLvl, noiseDist);
+    orb.setSub(sub);
+    orb.setSqueeze(squeeze);
+    orb.setXOver(xover);
+    orb.setFilter(cutoff, res);
+    orb.setFeedback(fbAmt, fbTime, fbSpace);
+    orb.setGain(gain);
+    orb.setMix(mix);
+    
     orb.advance(); 
             
     // Sync Stages Reactor with Central Theme
     stagesReactor.setValue(stages_raw);
     stagesReactor.setMorph(morph);
     
-    // --- CLASSIC SPECTRUM FEED ---
-    juce::AudioBuffer<float> vizNoise(1, 256);
-    auto* w_viz = vizNoise.getWritePointer(0);
-    for(int i=0; i<256; ++i) w_viz[i] = (juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f) * drive;
+    // --- CYBER DECK SPECTRUM FEED (REAL AUDIO) ---
+    // Pull from the Audio FIFO populated by the Processor
+    juce::AudioBuffer<float> vizNoise(1, 480); // 480 samples @ 48k is ~10ms. Enough for a snapshot.
+    vizNoise.clear();
+    
+    // Pull fresh data
+    audioProcessor.audioFifo.pull(vizNoise);
+    
+    // ANTAGRAVITY: Injecting Noise Floor ("Always Up" Aesthetic)
+    if (drive > 0.01f)
+    {
+        auto* w = vizNoise.getWritePointer(0);
+        // Inject low-level background noise so the spectrum maintains presence
+        float floorLvl = 0.015f * drive; 
+        for (int i = 0; i < vizNoise.getNumSamples(); ++i)
+            w[i] += (juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f) * floorLvl;
+    }
+    
     
     // Multi-parameter reactivity
     float fb_val = audioProcessor.apvts.getRawParameterValue("fbAmount")->load();
     
     osc.pushBuffer(vizNoise); 
     osc.setMorph(morph);
-    osc.setChaos(0.0f); 
+    // Chaos only kicks in after 60% drive, and ramps up
+    float chaos_inject = std::max(0.0f, (drive - 0.6f) * 2.5f); 
+    osc.setChaos(chaos_inject); 
     osc.setIntensity(fb_val);   
 
     // REPAINT ORB (Physical Drift)
