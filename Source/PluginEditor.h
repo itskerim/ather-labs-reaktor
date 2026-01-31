@@ -94,7 +94,6 @@ private:
     std::unique_ptr<Attachment> noiseLevelAtt, noiseWidthAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noiseTypeAtt;
 
-    juce::String currentStatusText = "SYS.OP.ACTIVE // AETHER.KERNEL.V5";
     bool tooltipsEnabled = true;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhatRackAudioProcessorEditor)

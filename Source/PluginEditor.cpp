@@ -5,13 +5,13 @@
 PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p),
       posSelector("POSITIVE", p.apvts, "algoPos"),
-      negSelector("NEGATIVE", p.apvts, "algoNeg")
+      negSelector("NEGATIVE", p.apvts, "algoNeg"),
+      tooltipWindow(this, 700)
 {
     // Apply AETHER Global LookAndFeel
     setLookAndFeel(&aetherLF);
 
     // --- 1. Branding & Header ---
-    tooltipWindow.setMillisecondsBeforeTipAppears(700);
     // Custom Logo is drawn in paint()
     
     // Presets
@@ -38,7 +38,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     helpButton.setToggleState(true, juce::dontSendNotification); // Default ON
     helpButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff00d4ff)); // Cyan when Active
     helpButton.setColour(juce::TextButton::textColourOnId, juce::Colours::black);
-    helpButton.setTooltip("HELP MODE: Toggle detailed DSP tooltips for all controls.");
+    helpButton.setTooltip("Turn this ON to see helpful descriptions when you hover over any control. Turn it OFF to hide the pop-up tips.");
     
     helpButton.onClick = [this] {
         tooltipsEnabled = helpButton.getToggleState();
@@ -54,6 +54,8 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     addAndMakeVisible(transferVis);
     addAndMakeVisible(posSelector);
     addAndMakeVisible(negSelector);
+    posSelector.setTitleVisible(false);
+    negSelector.setTitleVisible(false);
     addAndMakeVisible(logo);
 
     // --- 3. Primary Distortion Controls ---
@@ -74,6 +76,7 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     addAndMakeVisible(stagesReactor);
     
     stagesLabel.setText("12-STAGE REACTOR", juce::dontSendNotification);
+    stagesLabel.setVisible(false); // Label removed per user request
     addAndMakeVisible(stagesLabel);
 
     // --- 4. Morphing Filter Section ---
@@ -237,32 +240,30 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     subLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(subLabel);
 
-    // --- 8. UX Tooltips (DETAILED DSP MODE) ---
-    driveSlider.setTooltip("DRIVE // SATURATION ENGINE: Increases input gain pre-distortion. Using a multi-staged bipolar algorithm that treats positive and negative phases independently for maximum asymmetric grit.");
-    foldSlider.setTooltip("FOLD // SINE WAVEFOLDER: Maps the signal onto a sinusoidal curve. Instead of clipping, peaks are folded back, creating recursive harmonics and hollow 'talking' textures.");
-    stagesReactor.setTooltip("STAGES // MULTI-PASS REACTOR: Re-iterates the audio through the engine up to 12 times. Each pass compounds the non-linearity, resulting in dense, 'broken' harmonic structures.");
+    // --- 8. UX Tooltips (user-friendly, in plain language) ---
+    driveSlider.setTooltip("How hard you're pushing the sound into the effect. Turn it up for more grit, crunch, and saturation; keep it lower for a lighter, cleaner tone.");
+    foldSlider.setTooltip("Bends the loudest parts of the sound back on themselves instead of chopping them off. Creates hollow, vocal-like tones and extra harmonics—great for \"talking\" or synthy textures.");
+    stagesReactor.setTooltip("How many times the sound gets processed in a row (1–12). More stages = thicker, heavier, more broken-up distortion. Start low and increase for intensity.");
     
-    cutoffSlider.setTooltip("CUTOFF // TPT SVF FILTER: Zero-Delay Feedback State Variable Filter. Controls frequency response using topology-preserving math for stable, analog-style sweeps.");
-    resSlider.setTooltip("RESONANCE // Q-FACTOR: Increases gain at the cutoff. High levels trigger self-oscillation or vowel growls when combined with Formant mode.");
-    morphSlider.setTooltip("MORPH // DYNAMIC RESPONSE: Sweeps between filter types (LP, BP, HP) or Vowels (A, E, I, O, U) using linear coefficient interpolation.");
+    cutoffSlider.setTooltip("The frequency where the filter starts working. Move it left for a darker, muffled sound; move it right for brighter, more open tone. Like a tone knob that focuses on a specific range.");
+    resSlider.setTooltip("Emphasizes the frequencies right around the cutoff. Low = smooth and natural; high = whistling, ringing, or growling (especially in Vowel mode). Use carefully for character.");
+    morphSlider.setTooltip("Sweeps between different filter shapes (dark to bright) or between vowel sounds (A, E, I, O, U) when Vowel mode is on. Lets you shape the tone in one motion.");
     
-    fbAmountSlider.setTooltip("FEEDBACK // RESONATOR DEPTH: Re-injects processed audio into the chain. High amounts create metallic 'Karplus-Strong' synthesis or screaming resonance.");
-    fbTimeSlider.setTooltip("TIME // TUNED DELAY: Sets the delay line length in ms. Short times create comb-filter textures; longer times create distorted metallic echoes.");
-    spaceSlider.setTooltip("SPACE // DIFFUSION: Adds high-density all-pass delays to the loop, creating a claustrophobic 'small room' or 'tank' resonance.");
+    fbAmountSlider.setTooltip("Sends some of the processed sound back into the effect. A little adds body and sustain; a lot can create metallic ringing, screaming tones, or wild resonance. Experiment to find the sweet spot.");
+    fbTimeSlider.setTooltip("How long the delay is in the feedback loop (in milliseconds). Short = comb-like, metallic texture; long = stretched, echo-like resonance. Works together with Feedback amount.");
+    spaceSlider.setTooltip("Adds a sense of space and diffusion to the feedback—like a small room or tank. Makes the resonance feel more enclosed and dense rather than a single sharp tone.");
     
-    scrambleSlider.setTooltip("SCRAMBLE // CHAOS LFO: High-speed randomization engine. Modulates filter and feedback parameters with a jittered 'Drift' waveform for unstable 'Plasma' movement.");
+    noiseLevelSlider.setTooltip("Adds hiss or crackle into the sound so the distortion has something extra to chew on. Great for texture, grit, and high-end sizzle. Turn up to taste.");
+    noiseWidthSlider.setTooltip("How wide the added noise is in the stereo field. More width = more spread between left and right; less = more centered. Affects how big the texture feels.");
+    noiseTypeSelector.setTooltip("The kind of noise: White = even, flat hiss; Pink = warmer, softer hiss; Crackle = tiny pops and grit. Pick what fits your sound.");
     
-    noiseLevelSlider.setTooltip("NOISE // TEXTURE GEN: Injects pre-filtered white, pink, or crackle noise. Used to add 'tooth' and high-end sizzle that the distortion can grab onto.");
-    noiseWidthSlider.setTooltip("N-WIDTH: Stereo spread of the noise generator. Controls the phase-uncorrelated width of the texture injection.");
-    noiseTypeSelector.setTooltip("TYPE: Spectral Profile. Choose between pure White (flat), character Pink (filtered), or Crackle (granular impulses).");
+    subSlider.setTooltip("A clean, solid low-end (bass) that stays in the center. Keeps the bottom end clear and punchy while the rest of the sound can be heavily distorted.");
+    xoverSlider.setTooltip("Where the sound is split between the sub (bass) and the rest. Keeps bass and highs in sync so they work together instead of fighting. Adjust to fit your source.");
+    squeezeSlider.setTooltip("Compresses the sound to bring out small details and make it punchier. Can add grit and presence—like squashing the dynamics so quiet parts pop more.");
+    widthSlider.setTooltip("Makes the stereo image wider or narrower. The sub (bass) stays centered; this mainly affects the rest. Use to get a bigger or tighter stereo field.");
     
-    subSlider.setTooltip("SUB // MONO BASS: Clean sine-saturated mono channel. Keeps the low-end fundamental solid while the tops are being destroyed.");
-    xoverSlider.setTooltip("X-OVER // LINKWITZ-RILEY: 4th-order (24dB/oct) phase-matched crossover. Splits signal accurately so Sub and Tops stay in perfect phase alignment.");
-    squeezeSlider.setTooltip("SQUEEZE // MULTI-BAND OTT: Upward and downward compression engine. Smashes the signal into a wall to pull out tiny high-frequency detail and grit.");
-    widthSlider.setTooltip("WIDTH // DIMENSION EXPANDER: Stereo width transformation using mid-side processing and micro-delays. Keeps the low-band (Sub) strictly mono.");
-    
-    outputSlider.setTooltip("GAIN: Master Output Volume (Final Clean Gain Stage).");
-    mixSlider.setTooltip("MIX: Dry/Wet Parallel Blend. Uses a linear crossfade to preserve phase between the dry signal and the processed chain.");
+    outputSlider.setTooltip("Overall volume of the plugin. Use this to match the level of your mix when the effect is on.");
+    mixSlider.setTooltip("Balance between your dry (original) signal and the wet (effected) signal. 100% = full effect; 0% = bypass (original only). Use it to blend in the amount of distortion you want.");
 
     mixLabel.setText("DRY/WET", juce::dontSendNotification);
     mixLabel.setJustificationType(juce::Justification::centred);
@@ -298,12 +299,6 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillRect(0, 0, getWidth(), 80);
     g.setColour(juce::Colour(0xff1a1a1a));
     g.drawHorizontalLine(79, 0, (float)getWidth());
-
-    
-    // Global HUD Text
-    g.setColour(juce::Colour(0xff27272a));
-    g.setFont(juce::Font(juce::FontOptions("Inter", 10.0f, juce::Font::plain)));
-    g.drawText(currentStatusText, getWidth() - 400, getHeight() - 20, 380, 20, juce::Justification::right);
 }
 
 void PhatRackAudioProcessorEditor::resized()
@@ -363,10 +358,7 @@ void PhatRackAudioProcessorEditor::resized()
     // Mode Button (Small, under/near Filter section)
     filterModeBtn.setBounds(endX, startY + colW + 20, 90, 20); 
     
-    // We have Scramble...
-    placeKnob(scrambleSlider, scrambleLabel, endX + colW + gap, startY + colW + 20);
-    // placeKnob(scrambleSlider, scrambleLabel, endX + (colW + gap)*2, startY); // Moved down? Or replace?
-    // Let's keep Scramble on top row? No wait, Stages took its spot.
+    // Scramble/Plasma control removed from this layout (Stages took its spot).
     
     // Re-arranging Filter Row:
     // [ Cutoff ] [ Res ] [ Stages ]
@@ -482,28 +474,7 @@ void PhatRackAudioProcessorEditor::timerCallback()
     osc.setMorph(morph);
     osc.setChaos(0.0f); 
     osc.setIntensity(fb_val);   
-    
-    // --- UX: Interactive Status Bar ---
-    auto* comp = juce::Desktop::getInstance().getMainMouseSource().getComponentUnderMouse();
-    juce::String statusText = "SYS.OP.ACTIVE // AETHER.KERNEL.V5"; 
-    
-    if (comp)
-    {
-        if (auto* slider = dynamic_cast<juce::Slider*>(comp))
-        {
-            juce::String tip = slider->getTooltip();
-            if (tip.isNotEmpty())
-            {
-                juce::String valText = juce::String(slider->getValue(), 2);
-                juce::String paramName = tip.upToFirstOccurrenceOf(":", false, false);
-                juce::String desc = tip.fromFirstOccurrenceOf(":", false, false).trim();
-                statusText = paramName + ": " + valText + " // " + desc;
-            }
-        }
-    }
-    
-    currentStatusText = statusText;
-    
+
     // REPAINT ORB (Physical Drift)
     orb.setLevel(drive); 
     orb.setMorph(morph);

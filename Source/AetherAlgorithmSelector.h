@@ -27,15 +27,23 @@ public:
 
         algoCombo.addItemList(algos, 1);
         addAndMakeVisible(algoCombo);
-        
+
         attachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, pid, algoCombo);
+    }
+
+    void setTitleVisible(bool visible)
+    {
+        titleLabel.setVisible(visible);
     }
 
     void resized() override
     {
         auto area = getLocalBounds();
-        titleLabel.setBounds(area.removeFromTop(20));
-        area.removeFromTop(5);
+        if (titleLabel.isVisible())
+        {
+            titleLabel.setBounds(area.removeFromTop(20));
+            area.removeFromTop(5);
+        }
         algoCombo.setBounds(area.removeFromTop(24));
     }
 

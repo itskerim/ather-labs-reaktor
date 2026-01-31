@@ -24,7 +24,7 @@ class AetherReactorTank : public juce::Component, public juce::SettableTooltipCl
 public:
     AetherReactorTank()
     {
-        setTooltip("Distortion Stages: Controls how many times the signal is processed. More stages = deeper saturation.");
+        setTooltip("How many times the sound gets processed in a row (1–12). More stages = thicker, heavier, more broken-up distortion. Start low and increase for intensity.");
     }
 
     void setValue(int newValue)

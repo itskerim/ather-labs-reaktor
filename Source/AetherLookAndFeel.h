@@ -23,6 +23,52 @@ public:
         setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff18181b));
         setColour(juce::PopupMenu::textColourId, juce::Colour(0xfff4f4f5));
         setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff38bdf8));
+
+        // Tooltip: on-brand dark panel + cyan accent
+        setColour(juce::TooltipWindow::backgroundColourId, juce::Colour(0xff18181b));
+        setColour(juce::TooltipWindow::textColourId, juce::Colour(0xffe4e4e7));
+        setColour(juce::TooltipWindow::outlineColourId, juce::Colour(0xff00d4ff).withAlpha(0.5f));
+    }
+
+    juce::Rectangle<int> getTooltipBounds(const juce::String& tipText, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override
+    {
+        const int maxWidth = 380;
+        const int paddingX = 14;
+        const int paddingY = 10;
+        juce::AttributedString s;
+        s.setWordWrap(juce::AttributedString::WordWrap::byWord);
+        s.setJustification(juce::Justification::left);
+        s.append(tipText, juce::Font(juce::FontOptions("Inter", 13.0f, juce::Font::plain)), findColour(juce::TooltipWindow::textColourId));
+        juce::TextLayout tl;
+        tl.createLayoutWithBalancedLineLengths(s, (float)maxWidth - paddingX * 2);
+        auto w = (int)juce::jmin((float)maxWidth, tl.getWidth() + paddingX * 2.0f);
+        auto h = (int)(tl.getHeight() + paddingY * 2.0f);
+        return juce::Rectangle<int>(
+            screenPos.x > parentArea.getCentreX() ? screenPos.x - (w + 16) : screenPos.x + 20,
+            screenPos.y > parentArea.getCentreY() ? screenPos.y - (h + 8) : screenPos.y + 8,
+            w, h).constrainedWithin(parentArea);
+    }
+
+    void drawTooltip(juce::Graphics& g, const juce::String& text, int width, int height) override
+    {
+        auto bounds = juce::Rectangle<int>(0, 0, width, height).toFloat();
+        const float cornerSize = 6.0f;
+        const int paddingX = 12;
+        const int paddingY = 8;
+
+        g.setColour(findColour(juce::TooltipWindow::backgroundColourId));
+        g.fillRoundedRectangle(bounds, cornerSize);
+
+        g.setColour(findColour(juce::TooltipWindow::outlineColourId));
+        g.drawRoundedRectangle(bounds.reduced(0.5f), cornerSize, 1.0f);
+
+        juce::AttributedString s;
+        s.setWordWrap(juce::AttributedString::WordWrap::byWord);
+        s.setJustification(juce::Justification::left);
+        s.append(text, juce::Font(juce::FontOptions("Inter", 13.0f, juce::Font::plain)), findColour(juce::TooltipWindow::textColourId));
+        juce::TextLayout tl;
+        tl.createLayoutWithBalancedLineLengths(s, (float)width - paddingX * 2.0f);
+        tl.draw(g, juce::Rectangle<float>((float)paddingX, (float)paddingY, (float)width - paddingX * 2.0f, (float)height - paddingY * 2.0f));
     }
 
     juce::Font getLabelFont(juce::Label&) override

@@ -156,8 +156,10 @@ public:
                 SampleType p2 = processPeak(f2, ic3eq, ic4eq);
                 SampleType p3 = processPeak(f3, ic5eq, ic6eq);
                 
+                // Sum formant peaks; gain compensation so Vowel mode isn't much quieter than Morph
                 output = (p1 * 1.0f + p2 * 0.8f + p3 * 0.6f) * 0.8f;
-                output = std::tanh(output); // Soft clip
+                const float formantGainComp = 3.5f; // Formant is very selective, restore level
+                output = std::tanh(output * formantGainComp);
                 break;
             }
         }
