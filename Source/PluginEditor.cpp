@@ -296,6 +296,10 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     addAndMakeVisible(mixLabel);
 
     startTimerHz(60); // 60 FPS for smooth Orb animation
+    
+    // UX Improvements: Resizable Window
+    setResizable(true, true);
+    setResizeLimits(800, 600, 1600, 1200);
     setSize (1000, 700);
 }
 
@@ -309,15 +313,16 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
     // 1. Deep Void Background (Solid Dark)
     g.fillAll(juce::Colour(0xff050505)); 
     
-    float orbCX = getWidth() / 2.0f;
-    float orbCY = getHeight() / 2.0f;
-
     // --- Subtle Cyber Grid (Holodeck) ---
     g.setColour(juce::Colour(0xff1a1a1a));
     float gridSz = 40.0f;
+    
+    // Grid alignment correction
+    int startY = 80; 
+    
     for (float x = 0; x < getWidth(); x += gridSz)
-        g.drawVerticalLine((int)x, 80.0f, (float)getHeight());
-    for (float y = 80; y < getHeight(); y += gridSz)
+        g.drawVerticalLine((int)x, (float)startY, (float)getHeight());
+    for (float y = startY; y < getHeight(); y += gridSz)
         g.drawHorizontalLine((int)y, 0.0f, (float)getWidth());
 
     // Header Accent (Subtle Gloss)
@@ -330,160 +335,171 @@ void PhatRackAudioProcessorEditor::paint (juce::Graphics& g)
 void PhatRackAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
-    auto header = area.removeFromTop(60);
     
-    logo.setBounds(header.getX() + 15, header.getY(), 300, header.getHeight());
+    // --- 1. HEADER (Top 80px to match paint) ---
+    auto header = area.removeFromTop(80);
     
-    auto helpArea = header.removeFromRight(40).reduced(10);
+    auto helpArea = header.removeFromRight(50).reduced(10);
     helpButton.setBounds(helpArea);
     
-    presetSelector.setBounds(header.removeFromRight(180).reduced(10));
+    auto presetArea = header.removeFromRight(200).reduced(15);
+    presetSelector.setBounds(presetArea);
     
-    // Bottom Scope (Wide)
-    osc.setBounds(area.removeFromBottom(80).reduced(10));
+    logo.setBounds(header.removeFromLeft(300).reduced(10));
     
-    // Main Workspace
-    auto grid = area.reduced(20);
+    // --- 2. FOOTER / DECK (Bottom 100px) ---
+    // Contains the Global Controls
+    auto deck = area.removeFromBottom(110);
     
-    // Reactor Center (Larger, more space)
-    int reactorSize = 320; // Bigger Orb
-    orb.setBounds(grid.getCentreX() - reactorSize/2, grid.getCentreY() - reactorSize/2, reactorSize, reactorSize);
+    // Deck Layout: [Sub|XOver] ... [Squeeze|Width] ... [Out|Mix]
+    // We used to have 6 knobs. Let's center them.
+    int knobSize = juce::jmin(80, deck.getHeight() - 30);
+    int gap = 15;
+    int groupGap = 40;
     
-    // -- CORNER LAYOUT (Spread Out) --
-    int colW = 90; // Knob width
-    int gap = 10;
+    // Calculate total width
+    int totalDeckW = (knobSize * 6) + (gap * 4) + (groupGap * 2);
+    int startX = deck.getCentreX() - (totalDeckW / 2);
+    int y = deck.getCentreY() - (knobSize / 2) + 5;
     
-    int startY = grid.getY() + 20;
-    int startX = grid.getX() + 20;
-    int endX = grid.getRight() - 20 - (colW * 3 + gap * 2);
-    // Push bottom knobs UP slightly to make room for macros/deck
-    int bottomY = grid.getBottom() - 160; 
-    
-    // --- TOP LEFT: DISTORTION ---
-    auto placeKnob = [&](juce::Slider& s, juce::Label& l, int x, int y)
-    {
-        s.setBounds(x, y, colW, colW);
-        l.setBounds(x, y + colW - 15, colW, 20); // Label slightly tucked
+    auto placeDeckKnob = [&](juce::Slider& s, juce::Label& l, int& x) {
+        s.setBounds(x, y, knobSize, knobSize);
+        l.setBounds(x, s.getBottom() - 10, knobSize, 20);
+        x += knobSize + gap;
     };
     
-    // Row 1 (Distortion)
-    placeKnob(driveSlider, driveLabel, startX, startY);
-    placeKnob(foldSlider, foldLabel, startX + colW + gap, startY);
+    int currentX = startX;
     
-    // Row 2 (Noise) - Below Drive/Decimate
-    // Row 2 (Noise) - Below Drive/Decimate
-    placeKnob(noiseLevelSlider, noiseLevelLabel, startX, startY + colW + 20);
-    placeKnob(noiseWidthSlider, noiseWidthLabel, startX + colW + gap, startY + colW + 20);
+    // Group 1: Bass
+    placeDeckKnob(subSlider, subLabel, currentX);
+    placeDeckKnob(xoverSlider, xoverLabel, currentX);
     
-    // Noise Selector & Load Button
-    int selectorY = startY + (colW + 20) * 2 - 5;
-    int loadBtnW = 25;
-    int selectorW = (colW * 2) + gap - loadBtnW - 5;
+    currentX += groupGap; // Gap
     
-    noiseTypeSelector.setBounds(startX, selectorY, selectorW, 20);
-    loadNoiseButton.setBounds(startX + selectorW + 5, selectorY, loadBtnW, 20);
+    // Group 2: Texture
+    placeDeckKnob(squeezeSlider, squeezeLabel, currentX);
+    placeDeckKnob(widthSlider, widthLabel, currentX);
     
-    // --- TOP RIGHT: FILTER ---
-    // Mirror position
-    placeKnob(cutoffSlider, cutoffLabel, endX, startY);
-    placeKnob(resSlider, resLabel, endX + colW + gap, startY);
+    currentX += groupGap; // Gap
     
-    // Row 2 (Filter Extras)
-    // Mode Button (Small, under/near Filter section)
-    filterModeBtn.setBounds(endX, startY + colW + 20, 90, 20); 
+    // Group 3: Master
+    placeDeckKnob(outputSlider, outputLabel, currentX);
+    placeDeckKnob(mixSlider, mixLabel, currentX);
+
+    // --- 3. OSCILLOSCOPE (Above Deck) ---
+    auto oscArea = area.removeFromBottom(60).reduced(10, 0); // reduced width slightly?
+    osc.setBounds(oscArea);
+
+    // --- 4. MAIN WORKSPACE ---
+    auto grid = area.reduced(10);
     
-    // Scramble/Plasma control removed from this layout (Stages took its spot).
+    // Calculate Column Widths based on remaining space
+    // Design calls for: [Left Column] [Center Orb] [Right Column]
+    // We want the Orb to be maximum size in the center.
     
-    // Re-arranging Filter Row:
-    // [ Cutoff ] [ Res ] [ Stages ]
-    // --- BOTTOM LEFT: FEEDBACK ---
-    placeKnob(fbAmountSlider, fbAmountLabel, startX, bottomY);
-    placeKnob(fbTimeSlider, fbTimeLabel, startX + colW + gap, bottomY);
-    placeKnob(spaceSlider, spaceLabel, startX + (colW + gap)*2, bottomY);
+    int colWidth = 110; 
     
-    // --- BOTTOM RIGHT: REACTOR CORE ---
-    // The "Reactor Tank" filling slider
-    int tankW = 50;
-    int tankH = 150;
-    stagesReactor.setBounds(grid.getRight() - tankW - 10, grid.getBottom() - tankH - 10, tankW, tankH);
-    stagesLabel.setBounds(stagesReactor.getX() - 40, stagesReactor.getBottom() + 5, tankW + 80, 20);
-    // Moved to Deck below... disable these here or move them?
-    // Actually, "Output" block is now the Deck. 
-    // Let's keep the symmetry but move some things.
-    // We needed room.
+    auto leftCol = grid.removeFromLeft(colWidth * 2); // 2 knobs wide roughly
+    auto rightCol = grid.removeFromRight(colWidth * 2);
     
-    // --- CENTER CONTROLS (Overlaid on Orb Periphery) ---
-    // --- CENTER CONTROLS (Overlaid on Orb Periphery) ---
-    // Morph Slider (Top Center of Orb)
-    // Shifted down slightly to clear the Transfer Graph
-    morphSlider.setBounds(grid.getCentreX() - 40, orb.getY() - 50, 80, 80);
+    // CENTER: THE ORB
+    auto centerArea = grid;
+    int orbSize = juce::jmin(centerArea.getWidth(), centerArea.getHeight());
+    orbSize = juce::jmin(orbSize, 360); // Max cap
+    orb.setBounds(centerArea.getCentreX() - orbSize/2, centerArea.getCentreY() - orbSize/2, orbSize, orbSize);
+    
+    // CENTER OVERLAYS
+    // Morph Slider: Above Orb, or Inside?
+    // Previous layout: Above Morph was Transfer Vis.
+    // Morph Slider at Center Top of Orb? 
+    // Let's place Morph Slider centered above the Orb, and Transfer Vis above that.
+    
+    int centerTopY = orb.getY() - 10;
+    
+    // Morph Slider
+    morphSlider.setBounds(centerArea.getCentreX() - 40, centerTopY - 60, 80, 80);
     morphLabel.setBounds(morphSlider.getX(), morphSlider.getBottom() - 10, 80, 20);
     
-    // Macros Removed per user request
-
-    // --- 3. LAYOUT VISUALS (Background Layer) ---
-    // Orb is already placed.
-    
-    // Transfer visualizer still small at top
-    // Made slightly shorter to add gap
-    transferVis.setBounds(grid.getCentreX() - 50, header.getBottom() + 10, 100, 50); 
-    
-    // --- 7. BOTTOM ROW (Global / DnB Deck) ---
-    // We have 6 globs now: Sub, XOver, Squeeze, Width, Output, Mix
-    // Let's group them: 
-    // [ BASS FOUNDATION ] [ TEXTURE POP ] [ MASTER ]
-    // [ Sub | XOver ]     [ Squeeze | Width ] [ Out | Mix ]
-    
-    int knobSize = colW; 
-    int bottomY_global = getHeight() - 110;
-    int deckWidth = (knobSize + gap) * 6;
-    int startX_deck = (getWidth() - deckWidth) / 2 + 50; 
-    
-    // 1. Sub Foundation
-    subSlider.setBounds(startX_deck, bottomY_global, knobSize, knobSize);
-    subLabel.setBounds(subSlider.getX(), subSlider.getBottom() - 10, knobSize, 20);
-    
-    xoverSlider.setBounds(startX_deck + 80, bottomY_global, knobSize, knobSize);
-    xoverLabel.setBounds(xoverSlider.getX(), xoverSlider.getBottom() - 10, knobSize, 20);
-    
-    // 2. Texture Pop
-    squeezeSlider.setBounds(startX_deck + 180, bottomY_global, knobSize, knobSize); // Gap
-    squeezeLabel.setBounds(squeezeSlider.getX(), squeezeSlider.getBottom() - 10, knobSize, 20);
-    
-    widthSlider.setBounds(startX_deck + 260, bottomY_global, knobSize, knobSize);
-    widthLabel.setBounds(widthSlider.getX(), widthSlider.getBottom() - 10, knobSize, 20);
-    
-    // 3. Master
-    outputSlider.setBounds(startX_deck + 360, bottomY_global, knobSize, knobSize); // Gap
-    outputLabel.setBounds(outputSlider.getX(), outputSlider.getBottom() - 10, knobSize, 20);
-    
-    mixSlider.setBounds(startX_deck + 440, bottomY_global, knobSize, knobSize);
-    mixLabel.setBounds(mixSlider.getX(), mixSlider.getBottom() - 10, knobSize, 20);
-
-    // Selectors & Visuals (Tucked Top Center)
-    // transferVis.setBounds(grid.getCentreX() - 50, header.getBottom() + 10, 100, 60); // Original line, now moved
-    
-    // User Request: Move to Middle, Together, Above Morph
-    int selW = 90;
-    int selH = 20;
-    int selGap = 5;
-    int totalSelW = (selW * 2) + selGap;
-    
-    // Position above Morph (which is at grid.getCentreX())
-    int selStartX = grid.getCentreX() - (totalSelW / 2);
-    // Morph is at: grid.getCentreX() - 40, orb.getY() - 50...
-    // Let's put them nicely above the Morph Slider
+    // Selectors above Morph
+    int selW = 90; int selH = 20;
     int selY = morphSlider.getY() - selH - 5;
+    posSelector.setBounds(centerArea.getCentreX() - selW - 2, selY, selW, selH);
+    negSelector.setBounds(centerArea.getCentreX() + 2, selY, selW, selH);
     
-    posSelector.setBounds(selStartX, selY, selW, selH); 
-    negSelector.setBounds(selStartX + selW + selGap, selY, selW, selH);
+    // Transfer Vis above Selectors
+    transferVis.setBounds(centerArea.getCentreX() - 60, selY - 50, 120, 45);
+
+    // --- KNOB COLUMNS (Using Flex or manual relative logic) ---
+    int knobH = 90;
+    int kGap = 10;
     
-    // VISUALIZER: Position directly ABOVE the selectors
-    // The "sinewave" graph
-    int visW = 120;
-    int visH = 50; 
-    transferVis.setBounds(grid.getCentreX() - (visW/2), selY - visH - 5, visW, visH); 
-    negSelector.setBounds(selStartX + selW + selGap, selY, selW, selH);
+    // Helper
+    auto placeRow = [&](juce::Rectangle<int>& col, juce::Slider& s1, juce::Label& l1, juce::Slider* s2=nullptr, juce::Label* l2=nullptr) {
+        auto row = col.removeFromTop(knobH + 20);
+        int itemW = row.getWidth() / (s2 ? 2 : 1);
+        
+        s1.setBounds(row.getX() + (itemW - knobH)/2, row.getY(), knobH, knobH);
+        l1.setBounds(s1.getX(), s1.getBottom() - 12, knobH, 20);
+        
+        if (s2 && l2) {
+            s2->setBounds(row.getX() + itemW + (itemW - knobH)/2, row.getY(), knobH, knobH);
+            l2->setBounds(s2->getX(), s2->getBottom() - 12, knobH, 20);
+        }
+    };
+    
+    // LEFT COLUMN (Distortion + Noise)
+    // Row 1: Drive | Fold
+    placeRow(leftCol, driveSlider, driveLabel, &foldSlider, &foldLabel);
+    
+    // Row 2: Noise Level | Noise Width
+    placeRow(leftCol, noiseLevelSlider, noiseLevelLabel, &noiseWidthSlider, &noiseWidthLabel);
+    
+    // Row 3: Noise Type
+    auto noiseRow = leftCol.removeFromTop(30);
+    noiseTypeSelector.setBounds(noiseRow.removeFromLeft(noiseRow.getWidth() - 30).reduced(5, 0));
+    loadNoiseButton.setBounds(noiseRow.reduced(2));
+    
+    // Bottom Left: Feedback
+    // Push down
+    auto leftBottom = leftCol.removeFromBottom(knobH + 20);
+    // FB Amt | FB Time (Space moved?)
+    // Let's squeeze 3 here? Or just 2? 
+    // Previous: Amt, Time, Space
+    // Space is valuable. Let's put Space in Right Col bottom or squeeze 3.
+    // Let's try to fit 2 here (Amt/Time) and put Space elsewhere or tightly.
+    // Actually, Space fits nicely in Right Col.
+    
+    fbAmountSlider.setBounds(leftBottom.getX(), leftBottom.getY(), 90, 90);
+    fbAmountLabel.setBounds(fbAmountSlider.getX(), fbAmountSlider.getBottom()-12, 90, 20);
+    
+    fbTimeSlider.setBounds(leftBottom.getRight() - 90, leftBottom.getY(), 90, 90);
+    fbTimeLabel.setBounds(fbTimeSlider.getX(), fbTimeSlider.getBottom()-12, 90, 20);
+    
+    
+    // RIGHT COLUMN (Filter + Reactor)
+    // Row 1: Cutoff | Res
+    placeRow(rightCol, cutoffSlider, cutoffLabel, &resSlider, &resLabel);
+    
+    // Row 2: Mode Button
+    auto modeRow = rightCol.removeFromTop(30);
+    filterModeBtn.setBounds(modeRow.reduced(20, 2));
+
+    // Bottom Right: Reactor Area
+    // Previous: StagesTank, StagesLabel
+    // Let's put Space here too?
+    // Or Space in Left bottom and Feedback gets cramped?
+    // Let's put Space Slider above the Reactor Tank
+    
+    auto rightBottom = rightCol.removeFromBottom(160); // Tank height
+    
+    // Place Space Slider above Tank
+    spaceSlider.setBounds(rightBottom.getX() + 10, rightBottom.getY() - 90, 80, 80);
+    spaceLabel.setBounds(spaceSlider.getX(), spaceSlider.getBottom()-10, 80, 20);
+    
+    stagesReactor.setBounds(rightBottom.getRight() - 60, rightBottom.getBottom() - 150, 50, 140);
+    stagesLabel.setBounds(stagesReactor.getX() - 50, stagesReactor.getBottom(), 100, 20);
+    
+    // Adjust Space label visibility or just keep it tight
 }
 
 void PhatRackAudioProcessorEditor::paintOverChildren(juce::Graphics& g)

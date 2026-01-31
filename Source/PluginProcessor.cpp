@@ -99,6 +99,9 @@ void AetherAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 
     aetherEngine.prepare(spec);
     
+    // Pre-allocate dry buffer to max block size and channel count
+    dryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+
     visualiser.setSamplesPerBlock(256);
     visualiser.setBufferSize(1024);
 }
@@ -149,9 +152,13 @@ void AetherAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     float mix = apvts.getRawParameterValue("mix")->load();
     float outputDb = apvts.getRawParameterValue("output")->load();
 
-    // Store Dry Signal for Mix
-    juce::AudioBuffer<float> dryBuffer;
-    dryBuffer.makeCopyOf(buffer);
+    // Store Dry Signal for Mix (Zero Allocation)
+    // We only copy the active channels and samples for the current block
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+        if (ch < dryBuffer.getNumChannels())
+            dryBuffer.copyFrom(ch, 0, buffer.getReadPointer(ch), buffer.getNumSamples());
+    }
     float sub = *apvts.getRawParameterValue("sub");
     float squeeze = *apvts.getRawParameterValue("squeeze");
     float width = *apvts.getRawParameterValue("width");

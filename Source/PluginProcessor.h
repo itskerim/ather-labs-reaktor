@@ -82,5 +82,8 @@ private:
     // The AETHER Engine
     aether::AetherEngine<float> aetherEngine;
 
+    // Pre-allocated buffer for dry signal to avoid allocation in audio thread
+    juce::AudioBuffer<float> dryBuffer;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AetherAudioProcessor)
 };
