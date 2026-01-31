@@ -513,26 +513,29 @@ void PhatRackAudioProcessorEditor::resized()
     };
     
     // --- LEFT COLUMN (Distortion Section) ---
-    // Row 1 (Small): Noise | Crunch | Fold
-    auto row1 = leftCol.removeFromTop(knobH + 20);
-    int itemW1 = row1.getWidth() / 3;
-    noiseLevelSlider.setBounds(row1.getX(), row1.getY(), itemW1, knobH);
-    noiseLevelLabel.setBounds(noiseLevelSlider.getX(), noiseLevelSlider.getBottom() - 12, itemW1, 20);
+    // Row 1 (Top): Fold | Crunch
+    auto row1 = leftCol.removeFromTop(knobH + 15);
+    int itemW1 = row1.getWidth() / 2;
+    foldSlider.setBounds(row1.getX() + (itemW1 - knobH)/2, row1.getY(), knobH, knobH);
+    foldLabel.setBounds(foldSlider.getX(), foldSlider.getBottom() - 12, knobH, 20);
     
-    noiseWidthSlider.setBounds(row1.getX() + itemW1, row1.getY(), itemW1, knobH);
-    noiseWidthLabel.setBounds(noiseWidthSlider.getX(), noiseWidthSlider.getBottom() - 12, itemW1, 20);
+    noiseWidthSlider.setBounds(row1.getX() + itemW1 + (itemW1 - knobH)/2, row1.getY(), knobH, knobH);
+    noiseWidthLabel.setBounds(noiseWidthSlider.getX(), noiseWidthSlider.getBottom() - 12, knobH, 20);
     
-    foldSlider.setBounds(row1.getX() + itemW1 * 2, row1.getY(), itemW1, knobH);
-    foldLabel.setBounds(foldSlider.getX(), foldSlider.getBottom() - 12, itemW1, 20);
+    // Row 2 (Middle - Prominent): Noise | Distort | Low Cut
+    // We fit 3 knobs here, so we use a slightly smaller knob size for bounds.
+    auto row2 = leftCol.removeFromTop(knobH + 15);
+    int itemW2 = row2.getWidth() / 3;
+    int midKnobSize = 75; // Slightly smaller to fit 3 in 220px
     
-    // Row 2 (Large): Distort | Low Cut
-    auto row2 = leftCol.removeFromTop(knobH + 20);
-    int itemW2 = row2.getWidth() / 2;
-    driveSlider.setBounds(row2.getX(), row2.getY(), itemW2, knobH);
-    driveLabel.setBounds(driveSlider.getX(), driveSlider.getBottom() - 12, itemW2, 20);
+    auto placeMidKnob = [&](juce::Slider& s, juce::Label& l, int x) {
+        s.setBounds(x + (itemW2 - midKnobSize)/2, row2.getY(), midKnobSize, midKnobSize);
+        l.setBounds(s.getX(), s.getBottom() - 12, midKnobSize, 20);
+    };
     
-    lowCutSlider.setBounds(row2.getX() + itemW2, row2.getY(), itemW2, knobH);
-    lowCutLabel.setBounds(lowCutSlider.getX(), lowCutSlider.getBottom() - 12, itemW2, 20);
+    placeMidKnob(noiseLevelSlider, noiseLevelLabel, row2.getX());
+    placeMidKnob(driveSlider, driveLabel, row2.getX() + itemW2);
+    placeMidKnob(lowCutSlider, lowCutLabel, row2.getX() + itemW2 * 2);
     
     // Row 3: Noise Type (Now lower)
     auto noiseRow = leftCol.removeFromTop(30);

@@ -259,14 +259,45 @@ namespace aether
             g.setGradientFill(grad);
             g.fillEllipse(cx - safeScale * 1.2f, cy - safeScale * 1.2f, safeScale * 2.4f, safeScale * 2.4f);
             
-            // Feedback Halo (Outer Ring)
+            // Feedback Halo — glowing ring around the orb (Feedback / Time / Space)
             if (fbAmt > 0.01f)
             {
-                // Halo expands with Space and Pulse
-                float haloSize = safeScale * (2.2f + fbSpace * 1.0f) + (pulse * 30.0f);
-                float haloAlpha = fbAmt * 0.4f * mixValue; // Controlled by Mix
-                g.setColour(baseCol.withAlpha(haloAlpha));
-                g.drawEllipse(cx - haloSize/2, cy - haloSize/2, haloSize, haloSize, 2.0f + fbAmt * 10.0f);
+                // Base ring size: expands with Space and breathes with level
+                float haloSize = safeScale * (2.2f + fbSpace * 1.2f) + (pulse * 35.0f);
+                // Subtle time-based breath so the ring feels alive (fbTime modulates speed)
+                float timePhase = frame * 0.03f * (1.0f + fbTime * 0.5f);
+                float breath = 1.0f + std::sin(timePhase) * (0.04f + fbAmt * 0.06f);
+                float R = (haloSize * 0.5f) * breath;
+                float mixContrib = mixValue;
+
+                // ---- 1. Outer glow (soft bloom layers) ----
+                int glowLayers = 5;
+                for (int i = glowLayers; i >= 1; --i)
+                {
+                    float layerR = R + (float)i * (8.0f + fbSpace * 6.0f);
+                    float layerAlpha = (0.06f + fbAmt * 0.12f) * mixContrib * (1.0f / (float)i);
+                    g.setColour(baseCol.withAlpha(layerAlpha));
+                    g.drawEllipse(cx - layerR, cy - layerR, layerR * 2.0f, layerR * 2.0f, 3.0f + (float)i * 1.5f);
+                }
+
+                // ---- 2. Main ring — thick, bright core ----
+                float coreThickness = 4.0f + fbAmt * 14.0f + fbSpace * 4.0f;  // Thick & responsive
+                float coreAlpha = (0.5f + fbAmt * 0.5f) * mixContrib;
+                g.setColour(baseCol.withAlpha(coreAlpha));
+                g.drawEllipse(cx - R, cy - R, R * 2.0f, R * 2.0f, coreThickness);
+
+                // ---- 3. Inner bright edge (inner glow line) ----
+                float innerR = R - coreThickness * 0.4f;
+                if (innerR > 2.0f)
+                {
+                    g.setColour(baseCol.withAlpha(0.35f * mixContrib));
+                    g.drawEllipse(cx - innerR, cy - innerR, innerR * 2.0f, innerR * 2.0f, 2.0f);
+                }
+
+                // ---- 4. Outer bright edge (sharp rim) ----
+                float outerR = R + coreThickness * 0.3f;
+                g.setColour(baseCol.withAlpha(0.6f * mixContrib));
+                g.drawEllipse(cx - outerR, cy - outerR, outerR * 2.0f, outerR * 2.0f, 2.5f);
             }
             
             // Pre-calculate rotation matrices (Moved UP for Sub Beam)
