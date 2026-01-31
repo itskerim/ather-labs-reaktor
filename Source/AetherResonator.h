@@ -22,10 +22,15 @@ public:
     void prepare(const juce::dsp::ProcessSpec& spec)
     {
         sampleRate = (float)spec.sampleRate;
-        buffer.assign(buffer.size(), 0);
-        writeIndex = 0;
+        reset();
         lfo.prepare(spec.sampleRate);
         lfo.setParams(0.5f, AetherLFO::Waveform::Sine); // Slow breather
+    }
+
+    void reset()
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writeIndex = 0;
     }
 
     /**
@@ -59,6 +64,14 @@ public:
         // "Event Horizon" Saturation (Hard clipping at edges, linear in middle)
         // This keeps the feedback loop from exploding forever but allows it to scream
         SampleType saturated = std::tanh(output * (1.0f + plasma * 0.5f));
+        
+        // NAN CHECK: Protect feedback buffer from poisoning
+        if (!std::isfinite(saturated)) 
+        {
+            saturated = 0.0f;
+            // Optional: You could reset the whole buffer here if things went really wrong, 
+            // but correcting the stream is usually enough to recover.
+        }
         
         buffer[writeIndex] = saturated;
         writeIndex = (writeIndex + 1) % buffer.size();

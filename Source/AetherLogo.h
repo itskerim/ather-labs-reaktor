@@ -91,8 +91,29 @@ namespace aether
                 g.fillEllipse(screenX - size/2, screenY - size/2, size, size);
             }
             
-            // --- 2. Logo text removed per user request (orb + particles only) ---
-            float textX = startX + orbRadius + 6.0f;
+            // --- 2. Futuristic Typography ---
+            // Orb edge is at startX + orbRadius. We want exactly 6px gap.
+            float textX = startX + orbRadius + 6.0f; 
+            
+            juce::Font mainFont(juce::FontOptions("Inter", 24.0f, juce::Font::bold));
+            mainFont.setHorizontalScale(1.4f);
+            g.setFont(mainFont);
+            g.setColour(juce::Colours::white);
+            g.drawText("AETHER", (int)textX, (int)(bounds.getCentreY() - 14), 200, 24, juce::Justification::left, false);
+            
+            juce::Font subFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+            subFont.setHorizontalScale(1.6f);
+            g.setFont(subFont);
+            g.setColour(baseCol.withAlpha(0.9f));
+            g.drawText("L A B S", (int)textX + 2, (int)(bounds.getCentreY() + 8), 200, 15, juce::Justification::left, false);
+            
+            // Minimal High-Tech Line
+            g.setColour(juce::Colour(0xff3f3f46).withAlpha(0.6f));
+            g.drawHorizontalLine((int)(bounds.getCentreY() + 24), textX, textX + 110);
+            
+            // Neon Anchor
+            g.setColour(baseCol);
+            g.fillRect(textX, (float)(bounds.getCentreY() + 23), 20.0f, 2.0f);
         }
 
         void advance()

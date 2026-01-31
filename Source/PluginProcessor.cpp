@@ -5,10 +5,11 @@ AetherAudioProcessor::AetherAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
                      .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                     .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                        )
 #endif
 {
+    formatManager.registerBasicFormats();
 }
 
 AetherAudioProcessor::~AetherAudioProcessor()
@@ -73,6 +74,20 @@ const juce::String AetherAudioProcessor::getProgramName (int index)
 
 void AetherAudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
+}
+
+void AetherAudioProcessor::loadCustomNoise(const juce::File& file)
+{
+    std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
+    if (reader)
+    {
+        juce::AudioBuffer<float> newBuffer(reader->numChannels, (int)reader->lengthInSamples);
+        reader->read(&newBuffer, 0, (int)reader->lengthInSamples, 0, true, true);
+        
+        aetherEngine.setCustomNoise(newBuffer);
+        
+        // Note: UI updates param to "Custom" automatically
+    }
 }
 
 void AetherAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -264,8 +279,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout AetherAudioProcessor::create
 
     // --- Noise Engine ---
     layout.add(std::make_unique<juce::AudioParameterFloat>("noiseLevel", "Noise Level", 0.0f, 1.0f, 0.0f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>("noiseWidth", "Noise Width", 0.0f, 1.0f, 1.0f));
-    juce::StringArray noiseTypes; noiseTypes.add("White"); noiseTypes.add("Pink"); noiseTypes.add("Crackle");
+    layout.add(std::make_unique<juce::AudioParameterFloat>("noiseWidth", "Noise Distortion", 0.0f, 1.0f, 0.0f)); // Renamed Width to Distortion
+    juce::StringArray noiseTypes; noiseTypes.add("White"); noiseTypes.add("Pink"); noiseTypes.add("Crackle"); noiseTypes.add("Custom");
     layout.add(std::make_unique<juce::AudioParameterChoice>("noiseType", "Noise Type", noiseTypes, 0));
 
     return layout;

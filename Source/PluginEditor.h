@@ -52,6 +52,10 @@ private:
     juce::ComboBox noiseTypeSelector;
     juce::Label noiseLevelLabel, noiseWidthLabel;
     
+    // Custom Noise Loader
+    juce::TextButton loadNoiseButton { "L" };
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    
     // --- CENTRAL STAGE ---
     aether::AetherTransferVisualizer transferVis;
     aether::AetherOrb orb; // NEW CENTRAL CORE

@@ -4,6 +4,7 @@
 /Users/kerim/magicker/build/CMakeFiles/Aether_AU.dir
 /Users/kerim/magicker/build/CMakeFiles/Aether_VST3.dir
 /Users/kerim/magicker/build/CMakeFiles/Aether_vst3_helper.dir
+/Users/kerim/magicker/build/CMakeFiles/manual_pdf.dir
 /Users/kerim/magicker/build/CMakeFiles/edit_cache.dir
 /Users/kerim/magicker/build/CMakeFiles/rebuild_cache.dir
 /Users/kerim/magicker/build/CMakeFiles/list_install_components.dir

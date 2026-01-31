@@ -240,6 +240,19 @@ Aether_vst3_helper/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Aether_vst3_helper.dir/build.make CMakeFiles/Aether_vst3_helper.dir/build
 .PHONY : Aether_vst3_helper/fast
 
+#=============================================================================
+# Target rules for targets named manual_pdf
+
+# Build rule for target.
+manual_pdf: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 manual_pdf
+.PHONY : manual_pdf
+
+# fast build rule for target.
+manual_pdf/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/manual_pdf.dir/build.make CMakeFiles/manual_pdf.dir/build
+.PHONY : manual_pdf/fast
+
 Source/PluginEditor.o: Source/PluginEditor.cpp.o
 .PHONY : Source/PluginEditor.o
 
@@ -1105,6 +1118,7 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... Aether_All"
+	@echo "... manual_pdf"
 	@echo "... Aether"
 	@echo "... Aether_AU"
 	@echo "... Aether_Standalone"

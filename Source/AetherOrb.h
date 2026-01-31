@@ -65,6 +65,28 @@ namespace aether
 
         void setLevel(float lvl) { currentLevel = lvl; } // Audio Reactivity
         void setMorph(float m) { morphValue = m; }       // Color/Shape shift
+        void setWidth(float w) { widthValue = w; }       // Width Expansion
+        void setDrive(float d) { driveValue = d; }       // Drive Expansion
+
+        void mouseDown(const juce::MouseEvent& e) override
+        {
+            lastMousePos = e.getPosition();
+        }
+        
+        void mouseDrag(const juce::MouseEvent& e) override
+        {
+            auto pos = e.getPosition();
+            auto delta = pos - lastMousePos;
+            lastMousePos = pos;
+            
+            // X Drag -> Yaw (Rotate around Y)
+            viewYaw += delta.x * 0.01f;
+            
+            // Y Drag -> Pitch (Rotate around X)
+            viewPitch += delta.y * 0.01f;
+            
+            repaint();
+        }
 
         void paint(juce::Graphics& g) override
         {
@@ -72,90 +94,142 @@ namespace aether
             float h = (float)getHeight();
             float cx = w * 0.5f;
             float cy = h * 0.5f;
-            float scale = std::min(w, h) * 0.35f; // Orb Radius
             
-            // Audio Reactivity
-            targetExpansion = 1.0f + (currentLevel * 0.3f);
+            // Auto-Scaling to prevent clipping
+            float widthMult = 1.0f + widthValue * 0.8f;
+            float expansionEst = 1.0f + driveValue * 0.5f; 
+            
+            // USER REQUEST: Middle Ground Size (0.40f)
+            // Was 0.35 (Small) -> 0.45 (Huge). 0.40 is the sweet spot.
+            float baseScale = std::min(w, h) * 0.40f;
+            
+            // Dynamic Zoom out: Account for BOTH Width and Drive stretching
+            // We want the final "Wide Radius" to fit.
+            float combinedMult = widthMult * expansionEst;
+            
+            // Tuned Divider: 0.72f
+            // Ensures safety at edges without shrinking too early.
+            float safeScale = baseScale / (std::max(1.0f, combinedMult * 0.72f)); 
+            
+            // Audio Reactivity & Drive
+            targetExpansion = 1.0f + (driveValue * 0.3f) + (currentLevel * 0.5f);
             
             // Smooth expansion
             expansion += (targetExpansion - expansion) * 0.1f;
-            pulse = (expansion - 1.0f) * 2.0f; // Derived pulse for effects
-            
-            // Rotation moved to advance()
-            
-            // Base Color (Cyan -> Purple Morph)
-            
-            // Base Color (Cyan -> Purple Morph)
-            juce::Colour c1 = juce::Colour(0xff00d4ff); // Cyan
-            juce::Colour c2 = juce::Colour(0xffbc13fe); // Purple
+            pulse = (expansion - 1.0f); 
+
+            // Base Color
+            juce::Colour c1 = juce::Colour(0xff00d4ff); 
+            juce::Colour c2 = juce::Colour(0xffbc13fe); 
             juce::Colour baseCol = c1.interpolatedWith(c2, morphValue);
 
             // Draw Core Glow
             juce::ColourGradient grad(baseCol.withAlpha(0.3f), cx, cy, 
-                                      juce::Colours::transparentBlack, cx, cy - scale * 1.5f, true);
+                                      juce::Colours::transparentBlack, cx, cy - safeScale * 1.5f, true);
             g.setGradientFill(grad);
-            g.fillEllipse(cx - scale * 1.2f, cy - scale * 1.2f, scale * 2.4f, scale * 2.4f);
+            g.fillEllipse(cx - safeScale * 1.2f, cy - safeScale * 1.2f, safeScale * 2.4f, safeScale * 2.4f);
 
-            // Render Particles & Neural Connections
-            // Reduce count for performance if needed, but 400 is fine for modern CPUs.
-            // Let's use a subset for connections to avoid clutter.
-            
+            // Pre-calculate rotation matrices (simplistic)
+            float cp = std::cos(viewPitch);
+            float sp = std::sin(viewPitch);
+            float cyaw = std::cos(viewYaw);
+            float syaw = std::sin(viewYaw);
+
             for (size_t i = 0; i < particles.size(); ++i)
             {
                 auto& p = particles[i];
                 
-                // 1. Rotate & Project
-                float rotX = p.x * std::cos(rotation * p.speed) - p.z * std::sin(rotation * p.speed);
-                float rotZ = p.x * std::sin(rotation * p.speed) + p.z * std::cos(rotation * p.speed);
-                float rotY = p.y;
+                // 1. SIMULATION SWIRL (Internal Motion)
+                // Existing logic: shape mod + dancing + basic swirl
+                float shapeMod = std::sin(p.z * 5.0f + morphValue * 3.0f) * std::cos(p.y * 5.0f) * morphValue * 0.3f;
+                float dance = 0.0f;
+                if (currentLevel > 0.01f) {
+                     dance = std::sin(frame * p.speed * 10.0f + p.phaseOffset) * currentLevel * 0.2f;
+                }
                 
-                float zScale = (rotZ + 2.0f) / 3.0f; 
-                float r = scale * expansion;
+                float mx = p.x + shapeMod * p.x + dance;
+                float my = p.y + shapeMod * p.y + dance;
+                float mz = p.z + shapeMod * p.z;
                 
-                float screenX = cx + rotX * r;
-                float screenY = cy + rotY * r;
+                // Internal Spin (The "Swirl")
+                float rotPhase = rotation * p.speed;
+                float swirledX = mx * std::cos(rotPhase) - mz * std::sin(rotPhase);
+                float swirledZ = mx * std::sin(rotPhase) + mz * std::cos(rotPhase);
+                float swirledY = my;
                 
-                // Store projected coordinates for line drawing
+                // 2. VIEW ROTATION (Interactive Orbit)
+                // First Pitch (Rotate around X)
+                float y1 = swirledY * cp - swirledZ * sp;
+                float z1 = swirledY * sp + swirledZ * cp;
+                float x1 = swirledX;
+                
+                // Then Yaw (Rotate around Y)
+                float x2 = x1 * cyaw - z1 * syaw;
+                float z2 = x1 * syaw + z1 * cyaw;
+                float y2 = y1;
+                
+                // 3. FINAL PROJECTION
+                // Apply Width Stretch AFTER view rotation? 
+                // No, width stretch is usually a shape property, so it should be before view rotation 
+                // effectively making the object an elongated ellipsoid.
+                // Re-ordering: Apply width stretch to swirledX BEFORE rotation.
+                // NOTE: If we stretch AFTER rotation, it looks like a 2D distortion of the screen.
+                // If we stretch BEFORE rotation, it looks like a pill shape spinning.
+                // User said "widening", usually implies the stereo field or the shape. 
+                // Let's stretch the OBEJCT.
+                
+                // Re-calculating with Stretch applied to OBJECT COORDINATES
+                // swirledX *= (1.0f + widthValue * 0.8f); 
+                // wait, if I stretch swirledX, that's just one axis. 
+                // Let's do it right here:
+                
+                float stretchedX = swirledX * (1.0f + widthValue * 0.8f);
+                
+                // Now View Rotate the Stretched Object
+                y1 = swirledY * cp - swirledZ * sp;
+                z1 = swirledY * sp + swirledZ * cp;
+                x1 = stretchedX; // Use stretched
+                
+                x2 = x1 * cyaw - z1 * syaw;
+                z2 = x1 * syaw + z1 * cyaw;
+                y2 = y1;
+
+                float zScale = (z2 + 2.5f) / 3.5f; 
+                float r = safeScale * expansion;
+                
+                float screenX = cx + x2 * r;
+                float screenY = cy + y2 * r;
+                
                 p.px = screenX;
                 p.py = screenY;
-                p.pz = zScale; // Use as alpha/depth
+                p.pz = zScale;
                 
-                // Size attenuation
-                float size = p.baseSize * zScale * 3.0f + (pulse * 2.0f);
-                float alpha = zScale * zScale * p.brightness; 
+                float size = p.baseSize * zScale * 3.0f + (pulse * 3.0f);
+                float alpha = std::min(1.0f, zScale * zScale * p.brightness * 1.5f);
                 
-                // Draw Node
                 g.setColour(baseCol.withAlpha(alpha));
                 g.fillEllipse(screenX - size/2, screenY - size/2, size, size);
             }
             
-            // Neural Lines (Plexus)
-            // Connect nearby nodes
-            g.setColour(baseCol.withAlpha(0.15f)); // Faint lines
+            // Neural Lines
+            g.setColour(baseCol.withAlpha(0.12f)); 
             
-            for (size_t i = 0; i < particles.size(); i += 2) // Skip every other for performance/style
+            for (size_t i = 0; i < particles.size(); i += 2) 
             {
                 auto& p1 = particles[i];
-                if (p1.pz < 0.4f) continue; // Don't draw lines for back-facing particles
+                if (p1.pz < 0.45f) continue; 
                 
-                for (size_t j = i + 1; j < particles.size(); j += 4) // Check sparse neighbors
+                for (size_t j = i + 1; j < particles.size(); j += 4) 
                 {
                     auto& p2 = particles[j];
-                    if (p2.pz < 0.4f) continue; 
+                    if (p2.pz < 0.45f) continue; 
                     
-                    // Screen Space Distance
                     float dx = p1.px - p2.px;
                     float dy = p1.py - p2.py;
-                    float distSq = dx*dx + dy*dy;
+                    float maxDist = (60.0f + widthValue * 20.0f) * expansion;
                     
-                    float maxDist = 60.0f * expansion; // Connection threshold
-                    
-                    if (distSq < maxDist * maxDist)
+                    if (dx*dx + dy*dy < maxDist * maxDist)
                     {
-                        float dist = std::sqrt(distSq);
-                        float lineAlpha = (1.0f - (dist / maxDist)) * p1.pz * p2.pz * 0.4f;
-                        
-                        g.setColour(baseCol.withAlpha(lineAlpha));
                         g.drawLine(p1.px, p1.py, p2.px, p2.py, 1.0f);
                     }
                 }
@@ -164,23 +238,25 @@ namespace aether
         
         void advance()
         {
-            // Increment rotation
-            rotation += 0.005f + (pulse * 0.02f); // Spin faster with drive
-            // rotation -= twoPi line removed to prevent phase jumps with random speeds
-            
-            // Pulse decay
-            // We set 'pulse' from setLevel, but we can also animate a heartbeat?
-            // Actually setLevel is called from timer, so it acts as the envelope follower.
-            // We just need rotation.
+            rotation += 0.005f + (pulse * 0.05f); 
+            frame += 0.05f; 
         }
         
     private:
         std::vector<OrbParticle> particles;
         float rotation = 0.0f;
-        float currentLevel = 0.0f; // 0..1
-        float morphValue = 0.0f;   // 0..1
+        float frame = 0.0f;
         
-        // Animation State
+        // View Rotation
+        float viewYaw = 0.0f;
+        float viewPitch = 0.0f;
+        juce::Point<int> lastMousePos;
+        
+        float currentLevel = 0.0f; 
+        float morphValue = 0.0f;   
+        float widthValue = 0.0f; 
+        float driveValue = 0.0f;   
+        
         float expansion = 0.0f; 
         float targetExpansion = 0.0f;
         float pulse = 0.0f;

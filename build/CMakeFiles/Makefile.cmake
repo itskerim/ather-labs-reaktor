@@ -105,4 +105,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/Aether_AU.dir/DependInfo.cmake"
   "CMakeFiles/Aether_VST3.dir/DependInfo.cmake"
   "CMakeFiles/Aether_vst3_helper.dir/DependInfo.cmake"
+  "CMakeFiles/manual_pdf.dir/DependInfo.cmake"
   )

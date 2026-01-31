@@ -1,0 +1,302 @@
+/* AETHER 3.0 Manual — Style Guide
+   Dark, matte, hardware aesthetic. Cyan accents. Inter typography. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --aether-bg: #0a0a0b;
+  --aether-bg-elevated: #18181b;
+  --aether-border: #27272a;
+  --aether-border-subtle: #3f3f46;
+  --aether-text: #e4e4e7;
+  --aether-text-muted: #a1a1aa;
+  --aether-accent: #00d4ff;
+  --aether-accent-soft: #38bdf8;
+  --aether-accent-dim: rgba(0, 212, 255, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Full-bleed black page — zero white anywhere */
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: var(--aether-bg) !important;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: var(--aether-text);
+  background: var(--aether-bg) !important;
+  margin: 0 !important;
+  padding: 2rem 2.5rem !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100%;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Headings — cyan accent, clean weight */
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--aether-text);
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  border-bottom: 2px solid var(--aether-accent);
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--aether-accent-soft);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--aether-text);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--aether-text-muted);
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Subtitle under h1 */
+h1 + p {
+  color: var(--aether-text-muted);
+  font-size: 0.95rem;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+/* Links */
+a {
+  color: var(--aether-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--aether-accent-dim);
+}
+
+a:hover {
+  border-bottom-color: var(--aether-accent);
+}
+
+/* Horizontal rule — thin cyan line */
+hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--aether-accent-dim), transparent);
+  margin: 2rem 0;
+}
+
+/* Strong / bold */
+strong {
+  color: var(--aether-text);
+  font-weight: 600;
+}
+
+/* Lists */
+ul, ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+li {
+  margin: 0.35rem 0;
+}
+
+li::marker {
+  color: var(--aether-accent-dim);
+}
+
+/* Blockquote — left border accent */
+blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--aether-accent);
+  background: var(--aether-bg-elevated);
+  color: var(--aether-text-muted);
+  font-size: 0.95rem;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Code */
+code {
+  font-family: 'Inter', monospace;
+  font-size: 0.9em;
+  background: var(--aether-bg-elevated);
+  color: var(--aether-accent-soft);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  border: 1px solid var(--aether-border);
+}
+
+pre {
+  font-family: 'Inter', monospace;
+  font-size: 0.85rem;
+  background: var(--aether-bg-elevated);
+  color: var(--aether-text);
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--aether-border);
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
+/* Tables — dark rows, cyan header */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+  border: 1px solid var(--aether-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+thead {
+  background: var(--aether-bg-elevated);
+}
+
+th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  color: var(--aether-accent-soft);
+  border-bottom: 1px solid var(--aether-accent-dim);
+}
+
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--aether-border);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(24, 24, 27, 0.5);
+}
+
+/* Paragraphs */
+p {
+  margin: 0.6rem 0;
+}
+
+/* Screenshot placeholder styling — subtle box so they're visible */
+p:has([data-screenshot]) {
+  margin: 1rem 0;
+}
+
+/* Optional: style for screenshot placeholder text if we add a class later */
+[data-screenshot] {
+  display: block;
+  padding: 0.75rem 1rem;
+  background: var(--aether-bg-elevated);
+  border: 1px dashed var(--aether-border-subtle);
+  border-radius: 4px;
+  color: var(--aether-text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* TOC list — compact */
+body ul:first-of-type {
+  list-style: none;
+  padding-left: 0;
+}
+
+body ul:first-of-type li {
+  margin: 0.25rem 0;
+  padding-left: 0;
+}
+
+body ul:first-of-type li::marker {
+  content: none;
+}
+
+body ul:first-of-type a {
+  color: var(--aether-text-muted);
+  border-bottom: none;
+}
+
+body ul:first-of-type a:hover {
+  color: var(--aether-accent);
+}
+
+/* Appendix and section number styling */
+h2::before {
+  /* optional: add section number styling via JS or leave clean */
+}
+
+/* PDF: no white page margins, print dark background */
+@page {
+  margin: 0;
+  size: A4;
+}
+
+@media print {
+  html, body {
+    margin: 0 !important;
+    padding: 1.5rem 2rem !important;
+    background: var(--aether-bg) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  h2 {
+    page-break-after: avoid;
+  }
+
+  h3, h4 {
+    page-break-after: avoid;
+  }
+
+  table, pre, blockquote {
+    page-break-inside: avoid;
+  }
+}
+
+/* Title block — manual header feel */
+body > h1:first-child {
+  margin-bottom: 0.25rem;
+}
+
+body > p:first-of-type {
+  font-size: 1rem;
+  color: var(--aether-text);
+  margin-bottom: 0.5rem;
+}
+
+body > p:nth-of-type(2) {
+  font-size: 0.9rem;
+  color: var(--aether-text-muted);
+  margin-bottom: 1.5rem;
+}

@@ -1,15 +1,93 @@
 #pragma once
 
 #include "AetherCommon.h"
-#include <juce_dsp/juce_dsp.h>
+#include <vector>
 
 namespace aether
 {
 
+// Simple Schroeder All-Pass Filter
+// Used to manipulate phase without altering frequency magnitude response.
+// Transfer Function H(z) = ( -g + z^-D ) / ( 1 - g * z^-D )
+// This creates a frequency-dependent delay (dispersion).
+class AllPassFilter
+{
+public:
+    void setDelay(int samples)
+    {
+        buffer.assign(samples, 0.0f);
+        pos = 0;
+    }
+
+    void clear()
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        pos = 0;
+    }
+
+    float process(float input)
+    {
+        if (buffer.empty()) return input;
+
+        // Schroeder All-Pass Implementation:
+        // By mixing the input with the delayed signal and feeding back the result,
+        // we create a "smearing" of the signal in time (phase shift).
+        // 
+        // y[n] = -g * x[n] + x[n-D] + g * y[n-D]
+        //
+        // This effectively "rotates" the phase of frequencies differently 
+        // depending on the delay length 'D'.
+        
+        float delayed = buffer[pos];
+        float g = 0.5f; // Fixed coefficient (0.5 is optimal for smooth wide dispersion)
+        
+        // Feedforward and Feedback paths
+        float out = delayed - g * input;
+        float feed = input + g * delayed;
+        
+        // SAFETY: Soft clip feedback to prevent internal explosion if g > 1 or resonating
+        if (feed > 2.0f) feed = 2.0f;
+        if (feed < -2.0f) feed = -2.0f;
+        
+        buffer[pos] = feed;
+        
+        pos++;
+        if (pos >= buffer.size()) pos = 0;
+        
+        return out;
+    }
+
+private:
+    std::vector<float> buffer;
+    int pos = 0;
+};
+
 /**
- * AetherDimension: Hyper-Dimension Stereo Widener
- * Uses a short delay on the side channel or Haas effect to widen the stereo image.
- * Designed for High-Band content (Neuro tops).
+ * AetherDimension: "Wider" Style Phase-Decorrelation Imager
+ * 
+ * ALGORITHM EXPLANATION:
+ * Unlike traditional delays (Haas Effect) which sound phasey/metallic in mono,
+ * this uses a network of All-Pass Filters to decorrelate the phase of a "Side" signal
+ * without affecting the amplitude of any frequency.
+ * 
+ * SIGNAL FLOW:
+ * 1. Mono Sum (Mid) = (L + R) / 2
+ * 2. Side Signal = APF4( APF3( APF2( APF1( Mid ) ) ) )
+ *    - The chain of APFs creates a "scrambled" version of the Mid signal.
+ *    - It sounds identical in tone but has completely different phase alignment.
+ * 
+ * 3. Stereo Injection:
+ *    Left  = InputL + (Side * Width)
+ *    Right = InputR - (Side * Width)
+ * 
+ * MONO COMPATIBILITY MATH:
+ * When summed to Mono (L + R):
+ * Mono = (InputL + Side) + (InputR - Side)
+ * Mono = InputL + InputR
+ * Mono = Original Signal
+ * 
+ * The "Side" signal (the artificial width) mathematically vanishes.
+ * This guarantees 100% Mono Compatibility with zero phasing artifacts.
  */
 class AetherDimension
 {
@@ -17,82 +95,65 @@ public:
     void prepare(const juce::dsp::ProcessSpec& spec)
     {
         sampleRate = (float)spec.sampleRate;
-        // Max delay 20ms
-        delayBuffer.setSize(2, (int)(0.05f * sampleRate) + 1);
-        delayBuffer.clear();
+        
+        // Tuning: Prime delays for smooth dense dispersion without metallic resonance
+        // Scaled by sample rate to keep consistent time
+        int base = (int)(sampleRate * 0.001f); // 1ms base
+        
+        apf1.setDelay(base * 2 + 3);   // ~2ms
+        apf2.setDelay(base * 3 + 11);  // ~3ms
+        apf3.setDelay(base * 7 + 5);   // ~7ms
+        apf4.setDelay(base * 11 + 7);  // ~11ms
+        
+        reset();
     }
 
     void reset()
     {
-        delayBuffer.clear();
-        writePos = 0;
+        apf1.clear();
+        apf2.clear();
+        apf3.clear();
+        apf4.clear();
     }
 
     /**
-     * Process Stereo Sample (High Band)
+     * Process Stereo Sample
      * @param left  Left sample reference
      * @param right Right sample reference
      * @param width Amount 0.0 (Mono) -> 1.0 (Full Wide) -> 2.0 (Hyper)
      */
     void process(float& left, float& right, float width)
     {
-        if (width <= 0.01f) return; // Passthrough
+        if (width <= 0.01f) return;
 
-        // 1. Haas / Dimension Effect
-        // Delay one channel slightly (e.g., Right) or invert phase of delayed signal on Sides.
-        // Dimension Expander style:
-        // L = L + dry
-        // R = R - delayed_inverted ... complex.
+        // 1. Extract Mid (Mono)
+        float mid = (left + right) * 0.5f;
         
-        // Simple Haas for Neuro:
-        // Delay Right channel by ~10-15ms.
-        // BUT Haas collapses to comb filter in Mono. 
-        // Better: Mono-compatible Chorus/Detune? 
-        // Aether uses "Dimension": Two oppositely delayed signals mixed in.
+        // 2. Generate decorrelated "Side" signal via APF chain
+        float side = mid;
+        side = apf1.process(side);
+        side = apf2.process(side);
+        side = apf3.process(side);
+        side = apf4.process(side);
         
-        // Let's implement a safe "Side Diff" Widener.
-        // Side = (L - R) * width.
-        // Mid = (L + R)
-        // If signal is mono input (L=R), Side is 0. Widener does nothing.
-        // We need to CREATE width from Mono.
+        // 3. Inject Artificial Width
+        // The APF chain creates a phase-scrambled version of the mono signal.
+        // Adding it to L and subtracting from R creates width.
+        // Summing (L+R) cancels this term out perfectly : (I+S + I-S) = 2I.
         
-        // -- DIMENSION TRICK --
-        // Delay L by X ms, Delay R by Y ms. Mix in inverted?
-        // Let's go with:
-        // L_out = L + (Delayed_R_inverted * amount)
-        // R_out = R + (Delayed_L_inverted * amount)
+        // Apply width gain
+        // "Hyper" mode (width > 1.0) can push this harder
+        float amount = width * 1.0f; 
         
-        int delaySamps = (int)(0.012f * sampleRate); // 12ms fixed delay
-        
-        // Circular Buffer Write
-        auto* dL = delayBuffer.getWritePointer(0);
-        auto* dR = delayBuffer.getWritePointer(1);
-        int len = delayBuffer.getNumSamples();
-        
-        dL[writePos] = left;
-        dR[writePos] = right;
-        
-        // Read delayed
-        int rPos = writePos - delaySamps;
-        if (rPos < 0) rPos += len;
-        
-        float delayedL = dL[rPos];
-        float delayedR = dR[rPos];
-        
-        // Cross-inject inverted delay (Dimension style)
-        // Boosted intensity for "Hyper-Dimension" (User requested)
-        left  -= delayedR * width * 0.85f;
-        right -= delayedL * width * 0.85f;
-        
-        // Advance
-        writePos++;
-        if (writePos >= len) writePos = 0;
+        left  += side * amount;
+        right -= side * amount;
     }
 
 private:
     float sampleRate = 44100.0f;
-    juce::AudioBuffer<float> delayBuffer;
-    int writePos = 0;
+    
+    // Chain of filters
+    AllPassFilter apf1, apf2, apf3, apf4;
 };
 
 } // namespace aether

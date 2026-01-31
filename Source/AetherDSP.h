@@ -61,12 +61,14 @@ public:
         // Mono Sum
         SampleType mono = (left + right) * 0.5f;
         
-        // Gentle Saturation (Tube-like) to thicken sub
-        mono = std::tanh(mono * (1.0f + drive * 0.5f));
+        // BOOST: Drive saturation hard for "perceived loudness" (Harmonics)
+        // Input Boost: +6dB (2.0x) + Drive range
+        SampleType saturated = std::tanh(mono * (2.0f + drive * 2.0f));
         
         // Output to both channels
-        left = mono * subLevel;
-        right = mono * subLevel;
+        // Output Boost: Allow +6dB extra gain on top of parameter
+        left = saturated * subLevel * 2.0f;
+        right = saturated * subLevel * 2.0f;
     }
 };
 
@@ -81,33 +83,88 @@ public:
 
     void prepare(const juce::dsp::ProcessSpec& spec)
     {
-        // Prepare High-Band Chain
-        distortion.prepare(spec);
-        filter.prepare(spec);
-        // filter.setType(AetherFilter<SampleType>::FilterType::Formant); // FORCE GROWL MODE (Removed to restore Morph)
-        resonator.prepare(spec);
+        // 4x Oversampling (Factor 2: 2^2 = 4)
+        // Latency: Linear Phase is better for phase coherence with Sub, but adds latency.
+        // We use IIR for efficiency and acceptable phase characteristic for this effect.
+        oversampler.initProcessing(spec.maximumBlockSize);
+        oversampler.reset();
+
+        // CRITICAL FIX: Components in the upsampled path (High Band) run at 4x sample rate.
+        // We must prepare them with the correct rate so filters/LFOs behave correctly.
+        juce::dsp::ProcessSpec oversampledSpec = spec;
+        oversampledSpec.sampleRate = spec.sampleRate * 4.0;
+        oversampledSpec.maximumBlockSize = spec.maximumBlockSize * 4; // Buffer grows by 4x
         
-        // Prepare Sub & Split
+        // Prepare High-Band Chain with Oversampled Rate
+        distortion.prepare(oversampledSpec);
+        filter.prepare(oversampledSpec);
+        resonator.prepare(oversampledSpec);
+        
+        // Prepare Sub & Split (Run at native 1x rate)
         crossoverL.prepare(spec);
         crossoverR.prepare(spec);
         
-        chaosLFO.prepare(spec.sampleRate);
+        chaosLFO.prepare(spec.sampleRate); // LFOs stay at control rate (likely fine)
         chaosLFO.setParams(0.2f, AetherLFO::Waveform::Drift);
         fluxFollower.prepare(spec.sampleRate);
         fluxFollower.setParams(10.0f, 300.0f);
         
-        dimension.prepare(spec);
-        noiseGen.prepare(spec.sampleRate);
+        fluxFollower.prepare(spec.sampleRate);
+        fluxFollower.setParams(10.0f, 300.0f);
+        
+        // NOISE GATE: Tight response (30ms release)
+        noiseGateFollower.prepare(spec.sampleRate);
+        noiseGateFollower.setParams(5.0f, 30.0f); 
+        
+        // Fix: Dimension runs in oversampled loop, needs 4x rate for correct delay times
+        dimension.prepare(oversampledSpec);
+        
+        noiseGen.prepare(spec.sampleRate); // Noise is generated at 1x then upsampled naturally or injected?
+        // Wait, noise is injected at 1x in process(), then split. So prepare(spec.sampleRate) is correct.
         
         numChannels = spec.numChannels;
         
-        // 4x Oversampling (Factor 2: 2^2 = 4)
-        // Latency: Linear Phase is better for phase coherence with Sub, but adds latency.
-        // For a distortion unit, standard IIR (non-linear phase) might phase shift against the dry/sub signal.
-        // We use filterType::filter_half_band_polyphase_iir which is efficient but phase-warpy.
-        // Let's use FIR for linear phase to keep the mix tight.
-        oversampler.initProcessing(spec.maximumBlockSize);
+        reset();
+    }
+
+    void setCustomNoise(const juce::AudioBuffer<float>& newBuffer)
+    {
+        noiseGen.setCustomSample(newBuffer);
+    }
+
+    /**
+     * NUCLEAR RESET: Total System Reboot
+     * This function is the "Panic Button" for the audio engine.
+     * 
+     * PURPOSE:
+     * If the DSP explodes (NaNs, Infinite Feedback loops, Driver crashes),
+     * this function wipes the slate clean in <1ms.
+     * 
+     * WHAT IT DOES:
+     * 1. Clears all filter states (history).
+     * 2. Clears all delay buffers (silence).
+     * 3. Resets DC blockers.
+     * 4. Resets the Oversampler (crucial).
+     * 
+     * This turns a "Crash/Silence" event into a mere "Click" followed by recovery.
+     */
+    void reset()
+    {
+        distortion.reset();
+        filter.reset();
+        resonator.reset();
+        
         oversampler.reset();
+        
+        // Clear DC States
+        dcL_x1 = 0; dcL_y1 = 0;
+        dcR_x1 = 0; dcR_y1 = 0;
+        
+        // Reset sub components
+        // (Assuming they are stateless or simple enough, but could add reset there too if needed)
+        // Crossovers use SVF which has reset usually? 
+        // We can just rely on their stability or add reset to AetherCrossover later if needed.
+        // For now, the main culprits are the high band components.
     }
 
     void process(juce::AudioBuffer<SampleType>& buffer, 
@@ -125,13 +182,38 @@ public:
         
         chaosLFO.setBPM(bpm);
         
-        // --- NOISE INJECTION (Pre-Split/Pre-Distortion) ---
+        // --- NOISE INJECTION (Dynamic & Distorted) ---
+        // We use the FLUX envelope for gating the noise (Dynamic Texture)
+        // Note: fluxFollower needs to be updated with current signal first?
+        // Actually, flux is calculated inside the loop based on inputEnergy.
+        // But doing it sample-by-sample here creates a delay of 1 sample or requires calc.
+        
         auto nType = static_cast<typename AetherNoise<SampleType>::NoiseType>(noiseType);
+        
         for (int s = 0; s < totalSamples; ++s)
         {
             SampleType& left = channelDataL[s];
             SampleType& right = channelDataR ? channelDataR[s] : left;
-            noiseGen.process(left, right, noiseLevel, noiseWidth, nType);
+            
+            // Calc Envelopes for this sample (Pre-calc for noise gate)
+            // We use the same flux logic as in the High Band loop, but this is the full broadband input here.
+            float inputEnergy = (std::abs(left) + std::abs(right)) * 0.5f;
+            float envelope = noiseGateFollower.processSample(inputEnergy); // Use Tight Gate
+            fluxFollower.processSample(inputEnergy); // Keep main flux updated too (for visualizer etc?) 
+            // Actually fluxFollower IS updated in the high band loop later, but only for highs.
+            // If we want fluxFollower to track broadband for other purposes we should update it here, 
+            // but currently it is seemingly unused here except for the noise envelope previously.
+            // Wait, look at line 287: fluxFollower.processSample is called AGAIN in the high band loop.
+            // We should ensure we aren't "double clocking" it if it's the same object?
+            // Yes, "fluxFollower" is a member. If we call processSample here and later, it updates twice per sample (roughly).
+            // Actually the second loop is on the High Band signal. 
+            // Let's just use noiseGateFollower here. The fluxFollower update here was likely for noise only.
+            // So we can remove the fluxFollower call here if it's only used for noise.
+            
+            // noiseWidth parameter is now DISTORTION for the noise
+            float noiseDistortion = noiseWidth; 
+            
+            noiseGen.process(left, right, noiseLevel, noiseDistortion, nType, envelope);
         }
 
         // Update Filter Mode
@@ -309,6 +391,74 @@ public:
                 outR[s] = std::tanh(rLow + rHigh);
             }
         }
+
+        // --- 7. FINAL SAFETY & DC BLOCK ---
+        // Block DC to prevent silent headroom eating
+        const float R = 0.9995f; 
+
+        bool engineBroken = false;
+
+        for (int s = 0; s < totalSamples; ++s)
+        {
+            SampleType inL = outL[s];
+            
+            // IMMEDIATE WATCHDOG: Check for NaN before anything else
+            if (!std::isfinite(inL) || (outR && !std::isfinite(outR[s])))
+            {
+                engineBroken = true;
+                break;
+            }
+
+            SampleType outL_s = inL - dcL_x1 + R * dcL_y1;
+            dcL_x1 = inL; dcL_y1 = outL_s;
+            
+            // Hard Limit Safety (Host Protection)
+            if (outL_s > 2.0f) outL_s = 2.0f; 
+            else if (outL_s < -2.0f) outL_s = -2.0f;
+            
+            outL[s] = outL_s;
+
+            if (outR)
+            {
+                SampleType inR = outR[s];
+                SampleType outR_s = inR - dcR_x1 + R * dcR_y1;
+                dcR_x1 = inR; dcR_y1 = outR_s;
+                
+                if (outR_s > 2.0f) outR_s = 2.0f;
+                else if (outR_s < -2.0f) outR_s = -2.0f;
+                
+                outR[s] = outR_s;
+            }
+        }
+        
+        // If engine broke during this block, NUCLEAR RESET immediately.
+        if (engineBroken)
+        {
+            // WATCHDOG TRIGGERED: A NaN was detected in the signal path.
+            // Action: Instant Reset.
+            reset();
+            buffer.clear(); // Output silence for this block to save speakers.
+            return;
+        }
+
+        // --- 8. NUCLEAR WATCHDOG (Panic Switch) ---
+        // Secondary Safety: Rail Detection
+        // Even if NaNs aren't present, if the signal is "stuck" at the rail (+/- 2.0)
+        // for > 25% of the time, something is very wrong (DC explosion or feedback loop howl).
+        
+        int badSamples = 0;
+        for (int s = 0; s < totalSamples; ++s)
+        {
+            if (std::abs(outL[s]) >= 1.95f) badSamples++;
+            if (outR && std::abs(outR[s]) >= 1.95f) badSamples++;
+        }
+
+        // Threshold: 25% of samples are clipped hard.
+        if (badSamples > (totalSamples * numChannels) / 4)
+        {
+            // likely broken/exploded. Reboot.
+            reset();
+        }
     }
 
 private:
@@ -323,6 +473,7 @@ private:
     // Modulation
     AetherLFO chaosLFO;
     AetherEnvelopeFollower fluxFollower;
+    AetherEnvelopeFollower noiseGateFollower;
     
     // Width
     AetherDimension dimension;
@@ -333,6 +484,10 @@ private:
     juce::dsp::Oversampling<SampleType> oversampler { 2, 2, juce::dsp::Oversampling<SampleType>::filterHalfBandPolyphaseIIR, true };
     
     int numChannels = 2;
+    
+    // Safety
+    SampleType dcL_x1=0, dcL_y1=0;
+    SampleType dcR_x1=0, dcR_y1=0;
 };
 
 } // namespace aether

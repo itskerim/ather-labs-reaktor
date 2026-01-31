@@ -66,7 +66,12 @@ public:
     SampleType processSample(SampleType x)
     {
         // --- 1. Audio Stability Guard ---
-        if (!std::isfinite(s1) || !std::isfinite(s2)) reset();
+        // Recover from dead state or bad input
+        if (!std::isfinite(x) || !std::isfinite(s1) || !std::isfinite(s2)) 
+        {
+            reset();
+            return 0.0f; // Silence this sample
+        }
 
         // Standard SVF State Update
         SampleType v3 = x - s2;

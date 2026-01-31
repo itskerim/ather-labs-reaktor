@@ -154,10 +154,77 @@ public:
           g.fillEllipse(center.x - 3, center.y - 3, 6, 6); // Center pin
           
           // --- 4. VALUE ARC ---
-          juce::Path arc;
-          arc.addCentredArc(center.x, center.y, radius * 0.92f, radius * 0.92f, 0.0f, rotaryStartAngle, toAngle, true);
-          g.setColour(accent);
-          g.strokePath(arc, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+         // --- 4. HEXAGONAL VALUE ARC ---
+         juce::Path hexArc;
+         float arcRadius = radius * 0.92f; // Slightly offset from chassis
+         
+         // Lambda to calculate point on a flat-top hexagon at a given angle (JUCE 0=12oclock)
+         auto getHexPoint = [&](float ang) -> juce::Point<float>
+         {
+             // Normalize angle to find sector
+             // Hexagon symmetry: 6 sectors of 60 degrees (PI/3)
+             // We want flat top, so vertices are at -30, 30, 90... (in degrees)
+             // Vertices relative to 12 o'clock (0):
+             // i=0 (-30deg) is 330deg = 11 o'clock approx.
+             // Actually let's use the same geometry as the chassis:
+             // angle = i * 60 - 30. (degrees)
+             // In Radians: i * PI/3 - 0.5236
+             
+             // We need to project the circular angle onto the hexagon boundary.
+             // Hexagon equation in polar coords: r(theta) = R / cos(theta - alpha)
+             // where alpha is the center angle of the face.
+             
+             // Normalize ang to [0, 2PI)
+             float normAng = std::fmod(ang, juce::MathConstants<float>::twoPi);
+             if (normAng < 0) normAng += juce::MathConstants<float>::twoPi;
+             
+             // Offset to align sectors with vertices
+             // Vertices are at (i * PI/3) - 0.5236.
+             // Faces centers are at (i * PI/3).
+             // Wait, vertices at -30 means face center at 0 (Top)?
+             // chassis: i=0 -> -30 deg. i=1 -> 30 deg. Side 0 connects -30 to 30. That's TOP side.
+             // Center of Top side is 0 deg (12 o'clock).
+             // So we are aligned such that simple sector logic using (theta + PI/6) might work?
+             
+             // Let's rely on simple geometry:
+             // 60-degree wedges.
+             // Angle relative to face center.
+             // Face centers: 0, 60, 120, 180, 240, 300 deg.
+             // Find closest face center.
+             
+             float sectorSize = juce::MathConstants<float>::pi / 3.0f; // 60 deg
+             // We align so sector 0 is centered at 0.
+             // (ang + half_sector) / sector
+             int sectorIdx = (int)std::floor((normAng + (sectorSize * 0.5f)) / sectorSize);
+             float faceCenterAng = sectorIdx * sectorSize;
+             
+             float dist = arcRadius / std::cos(normAng - faceCenterAng);
+             return center.getPointOnCircumference(dist, ang);
+         };
+
+         // Generate Path
+         // We construct it by sampling or connecting vertices.
+         // Connecting vertices is cleaner.
+         hexArc.startNewSubPath(getHexPoint(rotaryStartAngle));
+         
+         // Find all "Vertex Angles" between Start and End
+         // Vertices: -0.5236, +0.5236, +1.5708, +2.6180...
+         // (i * PI/3) - 0.5236
+         for (int i = -2; i <= 8; ++i) // Broad search range
+         {
+             float vAng = i * (juce::MathConstants<float>::pi / 3.0f) - 0.52359f;
+             // Normalize logic if needed, but slider angles usually monotonic ranges.
+             // Check if vAng is strictly between P1 and P2
+             if (vAng > rotaryStartAngle && vAng < toAngle)
+             {
+                 hexArc.lineTo(getHexPoint(vAng));
+             }
+         }
+         
+         hexArc.lineTo(getHexPoint(toAngle));
+
+         g.setColour(accent);
+         g.strokePath(hexArc, juce::PathStrokeType(3.0f, juce::PathStrokeType::mitered, juce::PathStrokeType::butt));
     }
     
     // --- DROPDOWN: INSET SCREEN ---

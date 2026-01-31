@@ -71,6 +71,13 @@ public:
     // Waveform Data
     juce::AudioVisualiserComponent visualiser { 1 };
 
+    // Custom Noise Loading
+    void loadCustomNoise(const juce::File& file);
+    juce::AudioFormatManager formatManager;
+    
+    // RMS Meter for UI
+    std::atomic<float> outputMeter { 0.0f };
+
 private:
     // The AETHER Engine
     aether::AetherEngine<float> aetherEngine;

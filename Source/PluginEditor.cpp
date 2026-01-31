@@ -177,15 +177,41 @@ PhatRackAudioProcessorEditor::PhatRackAudioProcessorEditor (AetherAudioProcessor
     noiseWidthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     addAndMakeVisible(noiseWidthSlider);
     noiseWidthAtt = std::make_unique<Attachment>(audioProcessor.apvts, "noiseWidth", noiseWidthSlider);
-    noiseWidthLabel.setText("WIDTH", juce::dontSendNotification);
+    noiseWidthLabel.setText("DISTORT", juce::dontSendNotification);
     noiseWidthLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(noiseWidthLabel);
 
     noiseTypeSelector.addItem("WHITE", 1);
     noiseTypeSelector.addItem("PINK", 2);
     noiseTypeSelector.addItem("CRACK", 3);
+    noiseTypeSelector.addItem("CUSTOM", 4);
     addAndMakeVisible(noiseTypeSelector);
     noiseTypeAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.apvts, "noiseType", noiseTypeSelector);
+    
+    // Load Custom Noise Button
+    addAndMakeVisible(loadNoiseButton);
+    loadNoiseButton.setTooltip("Load Custom Noise Sample (WAV/AIF)");
+    loadNoiseButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff27272a));
+    loadNoiseButton.onClick = [this] {
+        fileChooser = std::make_unique<juce::FileChooser>("Select Noise Sample...",
+                                                          juce::File::getSpecialLocation(juce::File::userHomeDirectory),
+                                                          "*.wav;*.aif;*.aiff;*.mp3");
+        auto folderChooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+
+        fileChooser->launchAsync(folderChooserFlags, [this](const juce::FileChooser& fc)
+        {
+            auto file = fc.getResult();
+            if (file.existsAsFile())
+            {
+                audioProcessor.loadCustomNoise(file);
+                // Force selector to "Custom" (ID 4)
+                // Note: We need to access parameter to update UI, 
+                // but direct setValue on parameter is better for host sync.
+                if (auto* p = audioProcessor.apvts.getParameter("noiseType"))
+                    p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(3.0f)); // Index 3 = 4th item
+            }
+        });
+    };
 
     spaceSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     spaceSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -345,9 +371,17 @@ void PhatRackAudioProcessorEditor::resized()
     placeKnob(foldSlider, foldLabel, startX + colW + gap, startY);
     
     // Row 2 (Noise) - Below Drive/Decimate
+    // Row 2 (Noise) - Below Drive/Decimate
     placeKnob(noiseLevelSlider, noiseLevelLabel, startX, startY + colW + 20);
     placeKnob(noiseWidthSlider, noiseWidthLabel, startX + colW + gap, startY + colW + 20);
-    noiseTypeSelector.setBounds(startX, startY + (colW + 20) * 2 - 5, (colW * 2) + gap, 20);
+    
+    // Noise Selector & Load Button
+    int selectorY = startY + (colW + 20) * 2 - 5;
+    int loadBtnW = 25;
+    int selectorW = (colW * 2) + gap - loadBtnW - 5;
+    
+    noiseTypeSelector.setBounds(startX, selectorY, selectorW, 20);
+    loadNoiseButton.setBounds(startX + selectorW + 5, selectorY, loadBtnW, 20);
     
     // --- TOP RIGHT: FILTER ---
     // Mirror position
@@ -428,8 +462,28 @@ void PhatRackAudioProcessorEditor::resized()
 
     // Selectors & Visuals (Tucked Top Center)
     // transferVis.setBounds(grid.getCentreX() - 50, header.getBottom() + 10, 100, 60); // Original line, now moved
-    posSelector.setBounds(startX, header.getBottom() + 5, 90, 20); // Move near distortion
-    negSelector.setBounds(startX + 100, header.getBottom() + 5, 90, 20);
+    
+    // User Request: Move to Middle, Together, Above Morph
+    int selW = 90;
+    int selH = 20;
+    int selGap = 5;
+    int totalSelW = (selW * 2) + selGap;
+    
+    // Position above Morph (which is at grid.getCentreX())
+    int selStartX = grid.getCentreX() - (totalSelW / 2);
+    // Morph is at: grid.getCentreX() - 40, orb.getY() - 50...
+    // Let's put them nicely above the Morph Slider
+    int selY = morphSlider.getY() - selH - 5;
+    
+    posSelector.setBounds(selStartX, selY, selW, selH); 
+    negSelector.setBounds(selStartX + selW + selGap, selY, selW, selH);
+    
+    // VISUALIZER: Position directly ABOVE the selectors
+    // The "sinewave" graph
+    int visW = 120;
+    int visH = 50; 
+    transferVis.setBounds(grid.getCentreX() - (visW/2), selY - visH - 5, visW, visH); 
+    negSelector.setBounds(selStartX + selW + selGap, selY, selW, selH);
 }
 
 void PhatRackAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
@@ -456,8 +510,19 @@ void PhatRackAudioProcessorEditor::timerCallback()
     transferVis.updateInputLevel(sweep);
     
     // Update Orb & Scope
-    auto morph = audioProcessor.apvts.getRawParameterValue("morph")->load();
+    // REAL AUDIO REACTIVITY:
+    float meter = audioProcessor.outputMeter.load();
     
+    // Get Morph & Cutoff for Reactivity
+    auto morph = audioProcessor.apvts.getRawParameterValue("morph")->load();
+    auto width = audioProcessor.apvts.getRawParameterValue("width")->load();
+    
+    orb.setLevel(meter); // Drives expansion and "Dancing"
+    orb.setMorph(morph); // Drives color and Shape distortion
+    orb.setWidth(width); // Drives Horizontal stretch
+    orb.setDrive(drive); // Drives Base Size
+    orb.advance(); 
+            
     // Sync Stages Reactor with Central Theme
     stagesReactor.setValue(stages_raw);
     stagesReactor.setMorph(morph);
@@ -476,9 +541,6 @@ void PhatRackAudioProcessorEditor::timerCallback()
     osc.setIntensity(fb_val);   
 
     // REPAINT ORB (Physical Drift)
-    orb.setLevel(drive); 
-    orb.setMorph(morph);
-    orb.advance(); 
     logo.advance();
     logo.setMorph(morph);
 

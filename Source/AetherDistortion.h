@@ -21,6 +21,11 @@ public:
         sampleRate = (float)spec.sampleRate;
     }
 
+    void reset()
+    {
+        // Stateless, but good practice
+    }
+
     /**
      * Processes a single sample through the bipolar engine.
      * @param input The input sample

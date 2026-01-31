@@ -47,3 +47,14 @@ target_link_libraries(Aether PRIVATE
     juce::juce_gui_basics
     juce::juce_graphics
 )
+
+# Manual PDF build (run: cmake --build build --target manual_pdf)
+set(MANUAL_MD "${CMAKE_CURRENT_SOURCE_DIR}/docs/AETHER_3.0_User_Manual.md")
+set(MANUAL_PDF "${CMAKE_CURRENT_SOURCE_DIR}/docs/AETHER_3.0_User_Manual.pdf")
+set(MANUAL_CSS "${CMAKE_CURRENT_SOURCE_DIR}/docs/aether-manual.css")
+add_custom_target(manual_pdf
+  COMMAND npx --yes md-to-pdf "${MANUAL_MD}" --stylesheet "${MANUAL_CSS}"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs"
+  COMMENT "Building AETHER_3.0_User_Manual.pdf from Markdown"
+  BYPRODUCTS "${MANUAL_PDF}"
+)
